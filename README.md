@@ -22,6 +22,12 @@ import ZenNIO
 
 let router = Router()
 
+// Optional authentication on: http://<ip>:<port>/auth
+router.addAuthentication(handler: { (email, password) -> (Bool) in
+    return email == "admin" && password == "admin"
+})
+
+
 router.get("/hello") { req, res in
     res.send(text: "Hello World!")
     res.completed()
@@ -29,11 +35,12 @@ router.get("/hello") { req, res in
 
 let server = ZenNIO(port: 8080, router: router)
 //server.webroot = "/Users/admin/Projects/zenNio/webroot"
-//server.addAuthentication(handler: { (email, password) -> (Bool) in
-//    return email == password
-//})
 
-try? server.start()
+do {
+    try server.start()
+} catch {
+    print(error)
+}
 
 ```
 
