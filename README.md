@@ -1,4 +1,4 @@
-# zenNIO
+# ZenNIO
 
 <img src="https://github.com/gerardogrisolini/Webretail/blob/master/webroot/media/logo.png?raw=true" width="80" alt="Webretail - RMS" />
 
@@ -11,13 +11,15 @@ HTTP Server for IoT developed with SwiftNIO
 
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/zenNIO.git", from: "1.0.0")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.0.0")
 ]
 ```
 
 ### Example Usage
 
 ```
+import ZenNIO
+
 let router = Router()
 
 router.get("/hello") { req, res in
