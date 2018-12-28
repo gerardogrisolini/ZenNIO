@@ -27,11 +27,36 @@ router.addAuthentication(handler: { (email, password) -> (Bool) in
     return email == "admin" && password == "admin"
 })
 
+router.get("/") { req, res in
+    res.send(html: "<html><body><h1>Hello World!</h1></body></html>")
+    res.completed()
+}
 
 router.get("/hello") { req, res in
     res.send(text: "Hello World!")
     res.completed()
 }
+
+router.get("/hello/:name") { req, res in
+    do {
+        guard let name = req.getParam(String.self, key: "name") else {
+            throw HttpError.badRequest
+        }
+
+        let json = [
+            "ip": req.session!.ip,
+            "message": "Hello \(name)!"
+        ]
+        try res.send(json: json)
+        res.completed()
+    } catch HttpError.badRequest {
+        res.completed(.badRequest)
+    } catch {
+        print(error)
+        res.completed(.internalServerError)
+    }
+}
+
 
 let server = ZenNIO(port: 8080, router: router)
 //server.webroot = "/Users/admin/Projects/zenNio/webroot"
