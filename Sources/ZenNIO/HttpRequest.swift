@@ -63,6 +63,13 @@ public class HttpRequest {
         return String(bytes: body, encoding: .utf8)
     }
     
+    public var bodyData: Data? {
+        guard body.count > 0 else {
+            return nil
+        }
+        return Data(body)
+    }
+
     func parseRequest() {
         parseBodyParameters()
         parseBodyMultipart()
