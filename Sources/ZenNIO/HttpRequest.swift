@@ -86,6 +86,13 @@ public class HttpRequest {
         return nil
     }
     
+    public func getParam(_ type: UUID.Type, key: String) -> UUID? {
+        if let uuid = params[key] as? String {
+            return UUID(uuidString: uuid)
+        }
+        return nil
+    }
+
     public func getParam(_ type: String.Type, key: String) -> String? {
         return params[key] as? String
     }
