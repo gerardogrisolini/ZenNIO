@@ -57,7 +57,7 @@ final class ServerHandler: ChannelInboundHandler {
             self.keepAlive = request.isKeepAlive
             self.state.requestReceived()
         case .body(buffer: let buf):
-            self.savedBodyBytes.append(contentsOf: buf.getBytes(at: 0, length: buf.readableBytes)!)
+            self.savedBodyBytes = buf.getBytes(at: 0, length: buf.readableBytes)!
         case .end:
             self.state.requestComplete()
 
