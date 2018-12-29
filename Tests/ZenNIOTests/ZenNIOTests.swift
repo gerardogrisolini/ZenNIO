@@ -1,23 +1,19 @@
 import XCTest
-@testable import zenNIO
+@testable import ZenNIO
 
 final class zenNIOTests: XCTestCase {
+
+    struct Client : Codable {
+        var id : Int = 0
+        var name: String = ""
+        var email: String = ""
+    }
+
     func testExample() {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
         
-       struct Client : Codable {
-            var id : Int = 0
-            var name: String = ""
-            var email: String = ""
-        }
-
-        struct Hello : Codable {
-            var ip: String = ""
-            var message: String = ""
-        }
-
         let router = Router()
         
         // Authentication
@@ -62,6 +58,7 @@ final class zenNIOTests: XCTestCase {
             <h1>Welcome to ZenNIO!</h1>
             <p><a href="/auth">Authentication</a></p>
             <p><a href="/farm">Farm</a></p>
+            <p><a href="/hello">Hello</a></p>
             <hr>
             <p><a href="/client?id=10">Get (text/html)</a></p>
             <p><a href="/api/client/10">Get (application/json)</a></p>
@@ -206,11 +203,11 @@ cityAnimals: \(cityAnimals.joined(separator: ","))
                     throw HttpError.badRequest
                 }
 
-                var hello = Hello()
-                hello.ip = req.session.ip
-                hello.message = "Hello \(name)!"
-            
-                try res.send(json: hello)
+                let json = [
+                    "ip": req.session!.ip,
+                    "message": "Hello \(name)!"
+                ]
+                try res.send(json: json)
                 res.completed()
             } catch HttpError.badRequest {
                 res.completed(.badRequest)
@@ -220,9 +217,9 @@ cityAnimals: \(cityAnimals.joined(separator: ","))
             }
         }
 
-
         let server = ZenNIO(port: 8080, router: router)
-        
+//        server.webroot = "/Users/admin/Projects/zenNio/webroot"
+
 //        XCTAssertNoThrow(
 //            try server.addSSL(
 //                certFile: "/Users/admin/Projects/zenNio/cert.pem",
@@ -232,7 +229,6 @@ cityAnimals: \(cityAnimals.joined(separator: ","))
 //        )
         XCTAssertNoThrow(try server.start())
     }
-
 
     static var allTests = [
         ("testExample", testExample),

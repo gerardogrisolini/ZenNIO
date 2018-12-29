@@ -50,7 +50,7 @@ public class Router {
     
     func getRoute(request: inout HttpRequest) -> Route? {
         let range = NSRange(location: 0, length: request.url.utf8.count)
-        if let route = routes[request.head.method]!
+        if let route = routes[request.head.method]?
             .first(where: {
                 $0.regex == nil && $0.pattern == request.url
                 || $0.regex?.firstMatch(in: request.url, options: [], range: range) != nil
