@@ -91,18 +91,8 @@ extension String {
         task.arguments = arguments
         let pipe = Pipe()
         task.standardOutput = pipe
-        
-        #if os(Linux)
         task.launch()
-        #else
-        do {
-            try task.run()
-        } catch {
-            print(error.localizedDescription)
-            return nil
-        }
-        #endif
-        
+
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         if let output = String(data: data, encoding: String.Encoding.utf8) {
             return output
