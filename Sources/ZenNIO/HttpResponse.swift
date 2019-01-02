@@ -13,10 +13,12 @@ public class HttpResponse {
     var status: HTTPResponseStatus = .ok
     var headers = HTTPHeaders()
     var body: Data? = nil
+    let promise: EventLoopPromise<HttpResponse>
     
-    init() {
-        self.addHeader(.server, value: "zenNIO")
-        //self.addHeader(.date, value: Date().rfc5322Date)
+    init(promise: EventLoopPromise<HttpResponse>) {
+        self.promise = promise
+        self.addHeader(.server, value: "ZenNIO")
+        self.addHeader(.date, value: Date().rfc5322Date)
     }
     
     public func addHeader(_ name: HttpHeader, value: String) {
@@ -61,5 +63,6 @@ public class HttpResponse {
             send(html: html)
         }
         self.addHeader(.contentLength, value: "\(body?.count ?? 0)")
+        promise.succeed(result: self)
     }
 }

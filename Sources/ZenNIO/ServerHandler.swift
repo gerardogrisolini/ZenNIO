@@ -65,21 +65,27 @@ final class ServerHandler: ChannelInboundHandler {
 //            response.send(text: "Hello World!")
 //            response.completed()
 
-//            processRequest(ctx: ctx).whenSuccess({ response in
-//                self.processResponse(ctx, response)
-//            })
-
-            let response = processRequest(ctx: ctx)
-            self.processResponse(ctx: ctx, response: response)
+            processRequest(ctx: ctx).whenSuccess({ response in
+                self.processResponse(ctx: ctx, response: response)
+            })
         }
     }
 
-    private func processRequest(ctx: ChannelHandlerContext) -> HttpResponse { //-> EventLoopFuture<HttpResponse> {
-        var request = HttpRequest(head: self.infoSavedRequestHead!, body: self.savedBodyBytes)
-        let response = HttpResponse()
+    private func processRequest(ctx: ChannelHandlerContext) -> EventLoopFuture<HttpResponse> {
 
-//        let promise = ctx.eventLoop.newPromise(of: HttpResponse.self)
-//        ctx.eventLoop.execute({
+//        if request.head.method == .OPTIONS {
+//            response.headers.add(name: "Access-Control-Allow-Origin", value: "*") //request.head.headers["Origin"].first!)
+//            response.headers.add(name: "Access-Control-Allow-Headers", value: request.head.headers["Access-Control-Request-Headers"].first!)
+//            response.headers.add(name: "Access-Control-Allow-Methods", value: request.head.headers["Access-Control-Request-Method"].first!) //"POST, PUT, GET, DELETE")
+//            response.completed()
+//            return response
+//        }
+
+        let promise = ctx.eventLoop.newPromise(of: HttpResponse.self)
+        ctx.eventLoop.execute({
+            let response = HttpResponse(promise: promise)
+            var request = HttpRequest(head: self.infoSavedRequestHead!, body: self.savedBodyBytes)
+
             if let route = ZenNIO.getRoute(request: &request) {
                 var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
                 if session == nil {
@@ -90,7 +96,7 @@ final class ServerHandler: ChannelInboundHandler {
                     }
                 }
                 session!.ip = ctx.channel.remoteAddress!.description
-                session!.eventLoop = ctx.eventLoop
+                //session!.eventLoop = ctx.eventLoop
                 request.setSession(session!)
                 
                 if route.secure && !request.isAuthenticated {
@@ -102,12 +108,9 @@ final class ServerHandler: ChannelInboundHandler {
             } else {
                 response.completed(.notFound)
             }
-            
-//            promise.succeed(result: response)
-//        })
+        })
         
-//        return promise.futureResult
-        return response
+        return promise.futureResult
     }
     
     private func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
