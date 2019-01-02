@@ -96,7 +96,7 @@ final class ServerHandler: ChannelInboundHandler {
                     }
                 }
                 session!.ip = ctx.channel.remoteAddress!.description
-                //session!.eventLoop = ctx.eventLoop
+                session!.eventLoop = ctx.eventLoop
                 request.setSession(session!)
                 
                 if route.secure && !request.isAuthenticated {
