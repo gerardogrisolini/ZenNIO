@@ -1,7 +1,7 @@
 import XCTest
 @testable import ZenNIO
 
-final class zenNIOTests: XCTestCase {
+final class ZenNIOTests: XCTestCase {
 
     struct Client : Codable {
         var id : Int = 0

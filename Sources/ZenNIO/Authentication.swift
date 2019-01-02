@@ -1,6 +1,6 @@
 //
 //  Authentication.swift
-//  zenNIO
+//  ZenNIO
 //
 //  Created by admin on 22/12/2018.
 //
@@ -135,7 +135,7 @@ struct AuthenticationProvider : AuthenticationProtocol {
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>zenNIO - authentication</title>
+    <title>ZenNIO - authentication</title>
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
@@ -149,7 +149,7 @@ struct AuthenticationProvider : AuthenticationProtocol {
             <img class="fadeIn first" id="logo" alt="Logo" src="/assets/logo.png">
             <h2 class="active underlineHover"> Authentication </h2>
             <br/>
-            <p> Hello from zenNIO </p>
+            <p> Hello from ZenNIO </p>
             <p> IP: \(ip) </p>
             <div id="auth"></div>
             <div id="formFooter">

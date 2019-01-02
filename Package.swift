@@ -20,7 +20,7 @@ let package = Package(
             name: "ZenNIO",
             dependencies: ["NIO", "NIOConcurrencyHelpers", "NIOOpenSSL", "NIOHTTP1", "NIOHTTP2"]),
         .testTarget(
-            name: "zenNIOTests",
+            name: "ZenNIOTests",
             dependencies: ["ZenNIO"]),
     ]
 )

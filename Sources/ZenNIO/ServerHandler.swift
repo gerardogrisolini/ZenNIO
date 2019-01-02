@@ -1,6 +1,6 @@
 //
 //  ServerHandler.swift
-//  zenNIO
+//  ZenNIO
 //
 //  Created by admin on 20/12/2018.
 //
@@ -73,20 +73,21 @@ final class ServerHandler: ChannelInboundHandler {
 
     private func processRequest(ctx: ChannelHandlerContext) -> EventLoopFuture<HttpResponse> {
 
-//        if request.head.method == .OPTIONS {
-//            response.headers.add(name: "Access-Control-Allow-Origin", value: "*") //request.head.headers["Origin"].first!)
-//            response.headers.add(name: "Access-Control-Allow-Headers", value: request.head.headers["Access-Control-Request-Headers"].first!)
-//            response.headers.add(name: "Access-Control-Allow-Methods", value: request.head.headers["Access-Control-Request-Method"].first!) //"POST, PUT, GET, DELETE")
-//            response.completed()
-//            return response
-//        }
-
         let promise = ctx.eventLoop.newPromise(of: HttpResponse.self)
         ctx.eventLoop.execute({
             let response = HttpResponse(promise: promise)
             var request = HttpRequest(head: self.infoSavedRequestHead!, body: self.savedBodyBytes)
 
-            if let route = ZenNIO.getRoute(request: &request) {
+            if request.head.method == .OPTIONS {
+            
+                response.headers.add(name: "Access-Control-Allow-Origin", value: "*") // request.head.headers["Origin"].first!)
+                response.headers.add(name: "Access-Control-Allow-Headers", value: request.head.headers["Access-Control-Request-Headers"].first!)
+                response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE") //request.head.headers["Access-Control-Request-Method"].first!)
+                response.headers.add(name: "Access-Control-Max-Age", value: "86400")
+                response.completed()
+           
+            } else if let route = ZenNIO.getRoute(request: &request) {
+                
                 var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
                 if session == nil {
                     session = ZenNIO.sessions.new()
@@ -105,6 +106,7 @@ final class ServerHandler: ChannelInboundHandler {
                     request.parseRequest()
                     route.handler(request, response)
                 }
+                
             } else {
                 response.completed(.notFound)
             }
