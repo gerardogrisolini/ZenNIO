@@ -117,12 +117,12 @@ final class ServerHandler: ChannelInboundHandler {
     
     private func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
+        ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
         if let body = response.body {
             self.buffer = ctx.channel.allocator.buffer(capacity: body.count)
             self.buffer.write(bytes: body)
+            ctx.write(self.wrapOutboundOut(.body(.byteBuffer(self.buffer))), promise: nil)
         }
-        ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
-        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(self.buffer))), promise: nil)
         self.completeResponse(ctx, trailers: nil, promise: nil)
     }
     
