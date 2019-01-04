@@ -80,14 +80,22 @@ final class ServerHandler: ChannelInboundHandler {
 
             if request.head.method == .OPTIONS {
             
-                response.headers.add(name: "Access-Control-Allow-Origin", value: "*") // request.head.headers["Origin"].first!)
-                response.headers.add(name: "Access-Control-Allow-Headers", value: request.head.headers["Access-Control-Request-Headers"].first!)
-                response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE") //request.head.headers["Access-Control-Request-Method"].first!)
+                response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
+                response.headers.add(name: "Access-Control-Allow-Headers", value: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range")
+                response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE")
                 response.headers.add(name: "Access-Control-Max-Age", value: "86400")
-                response.completed()
-           
+                response.headers.add(name: "Content-Type", value: "text/plain; charset=utf-8")
+                response.completed(.noContent)
+            
             } else if let route = ZenNIO.getRoute(request: &request) {
                 
+                if ZenNIO.cors {
+                    response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
+                    response.headers.add(name: "Access-Control-Allow-Headers", value: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range")
+                    response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE")
+                    response.headers.add(name: "Access-Control-Expose-Headers", value: "Content-Length,Content-Range")
+                }
+
                 var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
                 if session == nil {
                     session = ZenNIO.sessions.new()
