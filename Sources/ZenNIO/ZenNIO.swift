@@ -20,7 +20,7 @@ public class ZenNIO {
     public var webroot: String
     static var router = Router()
     static var sessions = HttpSession()
-    static let cors: Bool = false
+    static var cors: Bool = false
     
     public init(
         host: String = "::1",

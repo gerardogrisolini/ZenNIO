@@ -9,13 +9,6 @@ import Foundation
 
 public typealias Login = ((_ email: String, _ password: String) -> (Bool))
 
-extension Router {
-    public func addAuthentication(handler: @escaping Login) {
-        ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
-        Authentication(handler: handler).makeRoutesAndHandlers(router: self)
-    }
-}
-
 public struct Account : Codable {
     public var email: String = ""
     public var password: String = ""

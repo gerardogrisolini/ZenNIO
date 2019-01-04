@@ -31,7 +31,7 @@ public class Router {
     public init() {
         routes = Dictionary<HTTPMethod, [Route]>()
     }
-    
+
     public func get(_ uri: String, secure: Bool = false, handler: @escaping HttpHandler) {
         addHandler(secure: secure, method: .GET, uri: uri, handler: handler)
     }
