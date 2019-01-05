@@ -176,7 +176,7 @@ final class ZenNIOTests: XCTestCase {
         router.get("/farm") { req, res in
             let houseAnimals: Set = ["🐶", "🐱"]
             let farmAnimals: Set = ["🐮", "🐔", "🐑", "🐶", "🐱"]
-            let cityAnimals: Set = ["🐦", "🐭"]
+            let Animals: Set = ["🐦", "🐭"]
             
             let content = """
 houseAnimals: \(houseAnimals.joined(separator: ","))
@@ -191,7 +191,18 @@ cityAnimals: \(cityAnimals.joined(separator: ","))
             res.send(text: "Hello World!")
             res.completed()
         }
-
+        
+        router.get("/hello.html") { req, res in
+            let context = ["name": "Gerardo"]
+            do {
+                try res.send(template: "hello.html", context: context)
+                res.completed()
+            } catch {
+                print(error)
+                res.completed(.internalServerError)
+            }
+        }
+        
         router.get("/hello/:name") { req, res in
             do {
                 guard let name = req.getParam(String.self, key: "name") else {

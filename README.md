@@ -4,14 +4,11 @@
 
 HTTP Server for IoT developed with SwiftNIO
 
-#### Under active development. Please do not use.
-
-
 ### Getting Started
 
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.0.4")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.1.1")
 ]
 ```
 
@@ -69,13 +66,51 @@ do {
 
 ```
 
-macOS
+## Example Template
+
+### templates/hello.html
+```
+...
+Hello {{ name}}!
+
+There are {{ items.count }} items.
+
+<ul>
+{% for item in items %}
+<li>{{ item }}</li>
+{% endfor %}
+</ul>
+...
+```
+
+### API
+```
+router.get("/hello.html") { req, res in
+    self.counter += 1
+
+    let context: [String : Any] = [
+        "name": "World",
+        "items": ["Item 1", "Item 2", "Item 3"]
+    ]
+    do {
+        try res.send(template: "hello.html", context: context)
+        res.completed()
+    } catch {
+        print(error)
+        res.completed(.internalServerError)
+    }
+}
+```
+
+### Dependencies
+
+#### macOS
 
 ```
 brew install nghttp2
 ```
 
-Ubuntu 18.04
+#### Ubuntu 18.04
 
 ```
 apt-get install -y git curl libatomic1 libicu60 libxml2 libz-dev pkg-config clang netcat-openbsd lsof perl nghttp2 libnghttp2-dev
