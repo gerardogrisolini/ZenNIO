@@ -8,6 +8,7 @@
 import Foundation
 import NIO
 import NIOHTTP1
+import Stencil
 
 public class HttpResponse {
     var status: HTTPResponseStatus = .ok
@@ -45,6 +46,14 @@ public class HttpResponse {
         self.send(data: html.data(using: .utf8)!)
     }
     
+    public func send(template: String, context: [String : Any]) throws {
+        let fsLoader = FileSystemLoader(paths: ["templates/"])
+        let environment = Environment(loader: fsLoader)
+        let html = try environment.renderTemplate(name: template, context: context)
+        self.addHeader(.contentType, value: "text/html; charset=utf-8")
+        self.send(data: html.data(using: .utf8)!)
+    }
+
     public func completed(_ status: HTTPResponseStatus = .ok) {
         self.status = status
         if status.code > 300 {

@@ -8,19 +8,20 @@ let package = Package(
     products: [
         .library(
             name: "ZenNIO",
-            targets: ["ZenNIO"]),
+            targets: ["ZenNIO"])
     ],
     dependencies: [
     	.package(url: "https://github.com/apple/swift-nio.git", from: "1.12.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "1.3.2"),
-        .package(url: "https://github.com/apple/swift-nio-http2.git", from: "0.2.0")
+        .package(url: "https://github.com/apple/swift-nio-http2.git", from: "0.2.0"),
+        .package(url: "https://github.com/stencilproject/Stencil.git", from: "0.13.1")
     ],
     targets: [
         .target(
             name: "ZenNIO",
-            dependencies: ["NIO", "NIOConcurrencyHelpers", "NIOOpenSSL", "NIOHTTP1", "NIOHTTP2"]),
+            dependencies: ["NIO", "NIOConcurrencyHelpers", "NIOOpenSSL", "NIOHTTP1", "NIOHTTP2", "Stencil"]),
         .testTarget(
             name: "ZenNIOTests",
-            dependencies: ["ZenNIO"]),
+            dependencies: ["ZenNIO"])
     ]
 )

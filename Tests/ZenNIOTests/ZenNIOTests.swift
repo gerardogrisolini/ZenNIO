@@ -20,67 +20,67 @@ final class ZenNIOTests: XCTestCase {
         router.addAuthentication(handler: { (email, password) -> (Bool) in
             return email == password
         })
-
+        
         // Default page (text/html)
         router.get("/") { req, res in
             let html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset='UTF-8'>
-            <title>ZenNIO</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <script>
-                function submitJson() {
-                    const json = JSON.stringify({
-                        id: 0,
-                        name: document.getElementById("name").value,
-                        email: document.getElementById("email").value
-                    });
-                    const url = "/api/client";
-                    fetch(url, {
-                        headers: {
-                          'Content-Type': 'application/json;charset=UTF-8',
-                          'Authorization': localStorage.getItem('token')
-                        },
-                        method : "POST",
-                        //mode: 'cors',
-                        cache: 'no-cache',
-                        body: json
-                    })
-                    .then(res => res.status == 401 ? alert(res.statusText) : res.json())
-                    .then(json => json ? alert(JSON.stringify(json)) : console.log('Invalid json'))
-                    .catch(error => console.log(error));
-                }
-            </script>
-        </head>
-        <body style='text-align:center;'>
-            <h1>Welcome to ZenNIO!</h1>
-            <p><a href="/auth">Authentication</a></p>
-            <p><a href="/farm">Farm</a></p>
-            <p><a href="/hello">Hello</a></p>
-            <hr>
-            <p><a href="/client?id=10">Get (text/html)</a></p>
-            <p><a href="/api/client/10">Get (application/json)</a></p>
-            <hr>
-            Authentication required (JWT)
-            <form method="POST" action="/client">
-                <br/><input type="text" id="name" name="name" placeholder="name"/>
-                <br/><input type="text" id="email" name="email" placeholder="email"/>
-                <br/>
-                <input type="submit" name="submit" value="Post (application/x-www-form-urlencoded)"/>
-                <input type="button" name="button" value="Post (application/json)" onclick="submitJson()"/>
-            </form>
-            <hr>
-            <form method="POST" action="/upload" enctype="multipart/form-data">
-                <input type="text" name="note" placeholder="note"/>
-                <input type="file" name="file"/>
-                <input type="submit" name="submit" value="Post (multipart/form)"/>
-            </form>
-            <hr>
-        </body>
-        </html>
-        """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>ZenNIO</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+        function submitJson() {
+            const json = JSON.stringify({
+                id: 0,
+                name: document.getElementById("name").value,
+                email: document.getElementById("email").value
+            });
+            const url = "/api/client";
+            fetch(url, {
+                headers: {
+                  'Content-Type': 'application/json;charset=UTF-8',
+                  'Authorization': localStorage.getItem('token')
+                },
+                method : "POST",
+                //mode: 'cors',
+                cache: 'no-cache',
+                body: json
+            })
+            .then(res => res.status == 401 ? alert(res.statusText) : res.json())
+            .then(json => json ? alert(JSON.stringify(json)) : console.log('Invalid json'))
+            .catch(error => console.log(error));
+        }
+    </script>
+</head>
+<body style='text-align:center;'>
+    <h1>Welcome to ZenNIO!</h1>
+    <p><a href="/auth">Authentication</a></p>
+    <p><a href="/farm">Farm</a></p>
+    <p><a href="/hello">Hello</a></p>
+    <hr>
+    <p><a href="/client?id=10">Get (text/html)</a></p>
+    <p><a href="/api/client/10">Get (application/json)</a></p>
+    <hr>
+    Authentication required (JWT)
+    <form method="POST" action="/client">
+        <br/><input type="text" id="name" name="name" placeholder="name"/>
+        <br/><input type="text" id="email" name="email" placeholder="email"/>
+        <br/>
+        <input type="submit" name="submit" value="Post (application/x-www-form-urlencoded)"/>
+        <input type="button" name="button" value="Post (application/json)" onclick="submitJson()"/>
+    </form>
+    <hr>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <input type="text" name="note" placeholder="note"/>
+        <input type="file" name="file"/>
+        <input type="submit" name="submit" value="Post (multipart/form)"/>
+    </form>
+    <hr>
+</body>
+</html>
+"""
             res.send(html: html)
             res.completed()
         }
@@ -189,11 +189,6 @@ cityAnimals: \(cityAnimals.joined(separator: ","))
 
         router.get("/hello") { req, res in
             res.send(text: "Hello World!")
-            res.completed()
-        }
-
-        router.get("/hello.html") { req, res in
-            res.send(html: "<html><body><h1>Hello World!</h1></body></html>")
             res.completed()
         }
 
