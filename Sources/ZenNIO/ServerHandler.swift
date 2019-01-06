@@ -72,12 +72,11 @@ final class ServerHandler: ChannelInboundHandler {
     }
 
     private func processRequest(ctx: ChannelHandlerContext) -> EventLoopFuture<HttpResponse> {
-
         let promise = ctx.eventLoop.newPromise(of: HttpResponse.self)
-        ctx.eventLoop.execute({
+        ctx.eventLoop.execute {
+            
             let response = HttpResponse(promise: promise)
             var request = HttpRequest(head: self.infoSavedRequestHead!, body: self.savedBodyBytes)
-
             if request.head.method == .OPTIONS {
             
                 response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
@@ -118,7 +117,7 @@ final class ServerHandler: ChannelInboundHandler {
             } else {
                 response.completed(.notFound)
             }
-        })
+        }
         
         return promise.futureResult
     }
