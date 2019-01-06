@@ -18,8 +18,8 @@ public class HttpResponse {
     
     init(promise: EventLoopPromise<HttpResponse>) {
         self.promise = promise
-        self.addHeader(.server, value: "ZenNIO")
-        self.addHeader(.date, value: Date().rfc5322Date)
+        addHeader(.server, value: "ZenNIO")
+        addHeader(.date, value: Date().rfc5322Date)
     }
     
     public func addHeader(_ name: HttpHeader, value: String) {
@@ -27,9 +27,9 @@ public class HttpResponse {
     }
     
     public func send<T: Codable>(json: T) throws {
-        self.addHeader(.contentType, value: "application/json; charset=utf-8")
+        addHeader(.contentType, value: "application/json; charset=utf-8")
         let data = try JSONEncoder().encode(json)
-        self.send(data: data)
+        send(data: data)
     }
     
     public func send(data: Data) {
@@ -37,41 +37,42 @@ public class HttpResponse {
     }
     
     public func send(text: String) {
-        self.addHeader(.contentType, value: "text/plain; charset=utf-8")
-        self.send(data: text.data(using: .utf8)!)
+        addHeader(.contentType, value: "text/plain; charset=utf-8")
+        send(data: text.data(using: .utf8)!)
     }
     
     public func send(html: String) {
-        self.addHeader(.contentType, value: "text/html; charset=utf-8")
-        self.send(data: html.data(using: .utf8)!)
+        addHeader(.contentType, value: "text/html; charset=utf-8")
+        send(data: html.data(using: .utf8)!)
     }
     
     public func send(template: String, context: [String : Any]) throws {
         let fsLoader = FileSystemLoader(paths: ["templates/"])
         let environment = Environment(loader: fsLoader)
         let html = try environment.renderTemplate(name: template, context: context)
-        self.addHeader(.contentType, value: "text/html; charset=utf-8")
-        self.send(data: html.data(using: .utf8)!)
+        addHeader(.contentType, value: "text/html; charset=utf-8")
+        send(data: html.data(using: .utf8)!)
     }
-
+    
     public func completed(_ status: HTTPResponseStatus = .ok) {
         self.status = status
         if status.code > 300 {
             let html = """
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-<html>
-<head>
-<title>\(status.reasonPhrase)</title>
-</head>
-<body>
-<p>\(headers[HttpHeader.server.rawValue].first!)</p>
-<h1>\(status.code) - \(status.reasonPhrase)</h1>
-</body>
-</html>
-"""
+            <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+            <html>
+            <head>
+            <title>\(status.reasonPhrase)</title>
+            </head>
+            <body>
+            <p>\(headers[HttpHeader.server.rawValue].first!)</p>
+            <h1>\(status.code) - \(status.reasonPhrase)</h1>
+            </body>
+            </html>
+            """
             send(html: html)
         }
-        self.addHeader(.contentLength, value: "\(body?.count ?? 0)")
+        addHeader(.contentLength, value: "\(body?.count ?? 0)")
         promise.succeed(result: self)
     }
 }
+
