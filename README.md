@@ -2,7 +2,10 @@
 
 <img src="https://github.com/gerardogrisolini/Webretail/blob/master/webroot/media/logo.png?raw=true" width="80" alt="Webretail - RMS" />
 
-HTTP Server for IoT based on SwiftNIO
+HTTP Server for IoT
+a) Non-blocking, event-driven architecture built on top of Apple's SwiftNIO delivers high performance.
+b) Written in Swift, the powerful programming language that is also easy to learn.
+c) Expressive, protocol-oriented design with a focus on type-safety and maintainability.
 
 #### Developing
 
