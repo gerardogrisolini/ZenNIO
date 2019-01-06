@@ -10,9 +10,7 @@ HTTP Server for IoT
 <li>Expressive, protocol-oriented design with a focus on type-safety and maintainability.</li>
 </ul>
 
-#### Developing
-
-ZenNIO's master branch is at the moment developing what will become SwiftNIO 2.0.0 which will be Swift 5-only. 
+#### ZenNIO's master branch is at the moment developing what will become SwiftNIO 2.0.0 which will be Swift 5-only. 
 
 
 ### Getting Started
