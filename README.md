@@ -8,7 +8,7 @@ HTTP Server for IoT developed with SwiftNIO
 
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.1.1")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.1.2")
 ]
 ```
 
