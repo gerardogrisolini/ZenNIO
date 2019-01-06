@@ -20,7 +20,7 @@ struct Route {
     let secure: Bool
     var pattern: String
     var regex: NSRegularExpression?
-    var handler: HttpHandler
+    var handler: HttpHandler?
     var params: [String: Array<String>.Index]
 }
 
@@ -64,7 +64,14 @@ public class Router {
         return nil
     }
     
-    private func addHandler(secure: Bool = false, method: HTTPMethod, uri: String, handler: @escaping HttpHandler) {
+    fileprivate func append(method: HTTPMethod, route: Route) {
+        if routes[method] == nil {
+            routes[method] = []
+        }
+        routes[method]!.append(route)
+    }
+    
+    func addHandler(secure: Bool = false, method: HTTPMethod, uri: String, handler: @escaping HttpHandler) {
 //        var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: method, uri: uri))
 //        if getRoute(request: &request) != nil {
 //            print("Warning: overwritten route \(method) \(uri) already recorded.")
@@ -83,9 +90,46 @@ public class Router {
         }
         
         let route = Route(secure: secure, pattern: uri, regex: regex.0, handler: handler, params: params)
-        if routes[method] == nil {
-            routes[method] = []
+        append(method: method, route: route)
+    }
+    
+    func initFolder(webroot: String) {
+        if webroot == "/dev/null/" { return }
+        do {
+            let uris = try getStaticFiles(path: webroot)
+            uris.forEach { uri in
+                addFileHandler(uri: uri)
+            }
+            print("Webroot: \(webroot)")
+            debugPrint(uris, separator: "\r\n", terminator: "\r\n")
+        } catch {
+            print(error.localizedDescription)
         }
-        routes[method]!.append(route)
+    }
+    
+    func addFileHandler(uri: String) {
+        let route = Route(secure: false, pattern: uri, regex: nil, handler: nil, params: [:])
+        append(method: .GET, route: route)
+    }
+    
+    fileprivate func getStaticFiles(path: String, subPath: String = "") throws -> [String] {
+        var urls = [String]()
+        
+        let fileManager = FileManager.default
+        let fileURLs = try fileManager.contentsOfDirectory(atPath: path + subPath)
+        
+        fileURLs.forEach({ file in
+            if file.hasPrefix(".") { return }
+            var isDir: ObjCBool = false
+            if fileManager.fileExists(atPath: "\(path)\(subPath)/\(file)", isDirectory: &isDir) {
+                if isDir.boolValue {
+                    urls.append(contentsOf: try! getStaticFiles(path: path, subPath: "/\(file)"))
+                } else {
+                    urls.append("\(subPath)/\(file)")
+                }
+            }
+        })
+        
+        return urls
     }
 }

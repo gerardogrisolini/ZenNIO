@@ -10,14 +10,12 @@ HTTP Server for IoT
 <li>Expressive, protocol-oriented design with a focus on type-safety and maintainability.</li>
 </ul>
 
-#### ZenNIO's master branch is at the moment developing what will become SwiftNIO 2.0.0 which will be Swift 5-only. 
-
 
 ### Getting Started
 
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.1.2")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.1.3")
 ]
 ```
 

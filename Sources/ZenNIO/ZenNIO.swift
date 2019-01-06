@@ -17,7 +17,11 @@ public class ZenNIO {
     
     private let port: Int
     private let host: String
-    public var webroot: String
+    public var webroot: String {
+        didSet {
+            ZenNIO.router.initFolder(webroot: webroot)
+        }
+    }
     static var router = Router()
     static var sessions = HttpSession()
     static var cors: Bool = false
@@ -54,12 +58,6 @@ public class ZenNIO {
     
     static func getRoute(request: inout HttpRequest) -> Route? {
         return self.router.getRoute(request: &request)
-    }
-    
-    public func stop() {
-        print("\r\nApplication stopped.")
-        kill(getpid(), SIGKILL)
-        exit(0)
     }
     
     public func start() throws {
@@ -121,16 +119,16 @@ public class ZenNIO {
             }()
         
         guard let localAddress = channel.localAddress else {
-            fatalError("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
+            fatalError("Address was unable to bind.")
         }
         
         let http = sslContext != nil ? "HTTPS" : "HTTP"
-        print("\(http) ZenNIO started on\(localAddress) webroot:\(webroot)")
+        print("\(http) ZenNIO started on\(localAddress)")
         
         // This will never unblock as we don't close the ServerChannel
         try channel.closeFuture.wait()
         
-        print("Server closed")
+        print("ZenNIO closed")
     }
 }
 

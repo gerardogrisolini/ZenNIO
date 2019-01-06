@@ -176,7 +176,7 @@ final class ZenNIOTests: XCTestCase {
         router.get("/farm") { req, res in
             let houseAnimals: Set = ["🐶", "🐱"]
             let farmAnimals: Set = ["🐮", "🐔", "🐑", "🐶", "🐱"]
-            let Animals: Set = ["🐦", "🐭"]
+            let cityAnimals: Set = ["🐦", "🐭"]
             
             let content = """
 houseAnimals: \(houseAnimals.joined(separator: ","))
@@ -223,13 +223,13 @@ cityAnimals: \(cityAnimals.joined(separator: ","))
             }
         }
 
-        let server = ZenNIO(port: 8080, router: router)
-//        server.webroot = "/Users/admin/Projects/zenNio/webroot"
+        let server = ZenNIO(router: router)
+//        server.webroot = "/Users/admin/Projects/ZenNIO/webroot"
 
 //        XCTAssertNoThrow(
 //            try server.addSSL(
-//                certFile: "/Users/admin/Projects/zenNio/cert.pem",
-//                keyFile: "/Users/admin/Projects/zenNio/key.pem",
+//                certFile: "/Users/admin/Projects/ZenNIO/cert.pem",
+//                keyFile: "/Users/admin/Projects/ZenNIO/key.pem",
 //                http: .v2
 //            )
 //        )
