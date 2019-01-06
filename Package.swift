@@ -1,4 +1,4 @@
-// swift-tools-version:4.2
+// swift-tools-version:5.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -11,9 +11,9 @@ let package = Package(
             targets: ["ZenNIO"])
     ],
     dependencies: [
-    	.package(url: "https://github.com/apple/swift-nio.git", from: "1.12.0"),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "1.3.2"),
-        .package(url: "https://github.com/apple/swift-nio-http2.git", from: "0.2.0"),
+    	.package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-nio-http2.git", .branch("master")),
         .package(url: "https://github.com/stencilproject/Stencil.git", from: "0.13.1")
     ],
     targets: [

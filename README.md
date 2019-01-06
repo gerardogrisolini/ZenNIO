@@ -2,7 +2,12 @@
 
 <img src="https://github.com/gerardogrisolini/Webretail/blob/master/webroot/media/logo.png?raw=true" width="80" alt="Webretail - RMS" />
 
-HTTP Server for IoT developed with SwiftNIO
+HTTP Server for IoT based on SwiftNIO
+
+#### Developing
+
+ZenNIO's master branch is at the moment developing what will become SwiftNIO 2.0.0 which will be Swift 5-only. 
+
 
 ### Getting Started
 

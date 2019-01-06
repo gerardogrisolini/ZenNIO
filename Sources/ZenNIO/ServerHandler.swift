@@ -12,7 +12,7 @@ import NIOHTTP2
 final class ServerHandler: ChannelInboundHandler {
     public typealias InboundIn = HTTPServerRequestPart
     public typealias OutboundOut = HTTPServerResponsePart
-    
+
     private enum State {
         case idle
         case waitingForRequestBody
@@ -40,7 +40,7 @@ final class ServerHandler: ChannelInboundHandler {
     private var state = State.idle
     private let htdocsPath: String
     
-    private var infoSavedRequestHead: HTTPRequestHead?
+    private var infoSavedRequestHead: HTTPRequestHead?    
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
     private var handlerFuture: EventLoopFuture<Void>?
     private let fileIO: NonBlockingFileIO
@@ -60,32 +60,32 @@ final class ServerHandler: ChannelInboundHandler {
             self.savedBodyBytes.append(contentsOf: buf.getBytes(at: 0, length: buf.readableBytes)!)
         case .end:
             self.state.requestComplete()
-            
-            //            let response = HttpResponse()
-            //            response.send(text: "Hello World!")
-            //            response.completed()
-            
+
+//            let response = HttpResponse()
+//            response.send(text: "Hello World!")
+//            response.completed()
+
             processRequest(ctx: ctx).whenSuccess({ response in
                 self.processResponse(ctx: ctx, response: response)
             })
         }
     }
-    
+
     private func processRequest(ctx: ChannelHandlerContext) -> EventLoopFuture<HttpResponse> {
-        let promise = ctx.eventLoop.newPromise(of: HttpResponse.self)
+        let promise = ctx.eventLoop.makePromise(of: HttpResponse.self)
         ctx.eventLoop.execute {
             
             let response = HttpResponse(promise: promise)
             var request = HttpRequest(head: self.infoSavedRequestHead!, body: self.savedBodyBytes)
             if request.head.method == .OPTIONS {
-                
+            
                 response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
                 response.headers.add(name: "Access-Control-Allow-Headers", value: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range")
                 response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE")
                 response.headers.add(name: "Access-Control-Max-Age", value: "86400")
                 response.headers.add(name: "Content-Type", value: "text/plain; charset=utf-8")
                 response.completed(.noContent)
-                
+            
             } else if let route = ZenNIO.getRoute(request: &request) {
                 
                 if ZenNIO.cors {
@@ -94,7 +94,7 @@ final class ServerHandler: ChannelInboundHandler {
                     response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE")
                     response.headers.add(name: "Access-Control-Expose-Headers", value: "Content-Length,Content-Range")
                 }
-                
+
                 var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
                 if session == nil {
                     session = ZenNIO.sessions.new()
@@ -133,22 +133,22 @@ final class ServerHandler: ChannelInboundHandler {
         self.completeResponse(ctx, trailers: nil, promise: nil)
     }
     
-    //    private func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
-    //        ctx.channel.getOption(option: HTTP2StreamChannelOptions.streamID).then { (streamID) -> EventLoopFuture<Void> in
-    //            var head = HTTPResponseHead(version: .init(major: 2, minor: 0), status: response.status, headers: response.headers)
-    //            head.headers.add(name: "x-stream-id", value: String(streamID.networkStreamID!))
-    //            ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
-    //            if let body = response.body {
-    //                self.buffer = ctx.channel.allocator.buffer(capacity: body.count)
-    //                self.buffer.write(bytes: body)
-    //                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(self.buffer))), promise: nil)
-    //            }
-    //            return ctx.channel.writeAndFlush(self.wrapOutboundOut(HTTPServerResponsePart.end(nil)))
-    //        }.whenComplete {
-    //            ctx.close(promise: nil)
-    //        }
-    //    }
-    
+//    private func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
+//        ctx.channel.getOption(option: HTTP2StreamChannelOptions.streamID).then { (streamID) -> EventLoopFuture<Void> in
+//            var head = HTTPResponseHead(version: .init(major: 2, minor: 0), status: response.status, headers: response.headers)
+//            head.headers.add(name: "x-stream-id", value: String(streamID.networkStreamID!))
+//            ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
+//            if let body = response.body {
+//                self.buffer = ctx.channel.allocator.buffer(capacity: body.count)
+//                self.buffer.write(bytes: body)
+//                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(self.buffer))), promise: nil)
+//            }
+//            return ctx.channel.writeAndFlush(self.wrapOutboundOut(HTTPServerResponsePart.end(nil)))
+//        }.whenComplete {
+//            ctx.close(promise: nil)
+//        }
+//    }
+
     private func handleFile(ctx: ChannelHandlerContext, request: HTTPServerRequestPart, path: String) {
         if var buffer = self.buffer {
             buffer.clear()
@@ -208,30 +208,30 @@ final class ServerHandler: ChannelInboundHandler {
                                                chunkSize: 32 * 1024,
                                                allocator: ctx.channel.allocator,
                                                eventLoop: ctx.eventLoop) { buffer in
-                                                if !responseStarted {
-                                                    responseStarted = true
-                                                    ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                                                    if !responseStarted {
+                                                        responseStarted = true
+                                                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                                                    }
+                                                    return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
+                                                }.then { () -> EventLoopFuture<Void> in
+                                                    let p = ctx.eventLoop.makePromise(of: Void.self)
+                                                    self.completeResponse(ctx, trailers: nil, promise: p)
+                                                    return p.futureResult
+                                                }.thenIfError { error in
+                                                    if !responseStarted {
+                                                        let response = self.httpResponseHead(request: request, status: .ok)
+                                                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                                                        var buffer = ctx.channel.allocator.buffer(capacity: 100)
+                                                        buffer.write(string: "fail: \(error)")
+                                                        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
+                                                        self.state.responseComplete()
+                                                        return ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
+                                                    } else {
+                                                        return ctx.close()
+                                                    }
+                                                }.whenComplete {_ in 
+                                                    _ = try? file.close()
                                                 }
-                                                return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
-                    }.then { () -> EventLoopFuture<Void> in
-                        let p = ctx.eventLoop.newPromise(of: Void.self)
-                        self.completeResponse(ctx, trailers: nil, promise: p)
-                        return p.futureResult
-                    }.thenIfError { error in
-                        if !responseStarted {
-                            let response = self.httpResponseHead(request: request, status: .ok)
-                            ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                            var buffer = ctx.channel.allocator.buffer(capacity: 100)
-                            buffer.write(string: "fail: \(error)")
-                            ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
-                            self.state.responseComplete()
-                            return ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
-                        } else {
-                            return ctx.close()
-                        }
-                    }.whenComplete {
-                        _ = try? file.close()
-                }
             }
         case .end:
             self.state.requestComplete()
@@ -255,20 +255,20 @@ final class ServerHandler: ChannelInboundHandler {
         }
         return head
     }
-    
+
     private func completeResponse(_ ctx: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
         self.state.responseComplete()
         
-        let promise = self.keepAlive ? promise : (promise ?? ctx.eventLoop.newPromise())
+        let promise = self.keepAlive ? promise : (promise ?? ctx.eventLoop.makePromise())
         if !self.keepAlive {
-            promise!.futureResult.whenComplete { ctx.close(promise: nil) }
+            promise!.futureResult.whenComplete { _ in ctx.close(promise: nil) }
         }
         self.handler = nil
         
         ctx.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
     }
-    
-    
+
+
     func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
         let reqPart = self.unwrapInboundIn(data)
         if let handler = self.handler {
@@ -278,7 +278,7 @@ final class ServerHandler: ChannelInboundHandler {
         
         switch reqPart {
         case .head(let request):
-            if let path = request.uri.chopPrefix("/web/") {
+           if let path = request.uri.chopPrefix("/web/") {
                 self.handler = { self.handleFile(ctx: $0, request: $1, path: path) }
                 self.handler!(ctx, reqPart)
             } else {
@@ -288,7 +288,7 @@ final class ServerHandler: ChannelInboundHandler {
         case .body:
             break
         case .end:
-            break
+             break
         }
     }
     
@@ -314,4 +314,3 @@ final class ServerHandler: ChannelInboundHandler {
         }
     }
 }
-
