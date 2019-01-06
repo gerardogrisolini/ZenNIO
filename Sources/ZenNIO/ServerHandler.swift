@@ -157,7 +157,7 @@ final class ServerHandler: ChannelInboundHandler {
 //    }
 
     fileprivate func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
-        let path = self.htdocsPath + "/" + request.uri
+        let path = self.htdocsPath + request.uri
         let fileHandleAndRegion = self.fileIO.openFile(path: path, eventLoop: ctx.eventLoop)
         fileHandleAndRegion.whenFailure {
             switch $0 {
