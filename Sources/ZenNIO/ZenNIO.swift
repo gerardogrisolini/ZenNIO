@@ -15,8 +15,8 @@ public class ZenNIO {
     private var sslContext: SSLContext? = nil
     private var httpProtocol: HttpProtocol = .v1
     
-    private let port: Int
-    private let host: String
+    public let port: Int
+    public let host: String
     public var webroot: String {
         didSet {
             ZenNIO.router.initFolder(webroot: webroot)
