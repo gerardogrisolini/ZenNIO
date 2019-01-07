@@ -77,39 +77,6 @@ extension String {
             return "application/octet-stream"
         }
     }
-    
-    public func shell(arguments: [String] = []) -> String? {
-        let envs = ["/bin", "/sbin", "/usr/sbin"]
-        let fileManager = FileManager.default
-        var launchPath = self
-        if launchPath.first != "/" {
-            for env in envs {
-                let path = "\(env)/\(launchPath)"
-                if fileManager.fileExists(atPath: path) {
-                    launchPath = path
-                }
-            }
-        }
-        if launchPath.first != "/" {
-            return nil
-        }
-        
-        print("shell: \(launchPath) \(arguments.joined(separator: " "))")
-        
-        let task = Process()
-        task.launchPath = launchPath
-        task.arguments = arguments
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.launch()
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        if let output = String(data: data, encoding: String.Encoding.utf8) {
-            return output
-        }
-        
-        return ""
-    }
 }
 
 extension Date {
