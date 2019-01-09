@@ -114,7 +114,7 @@ router.get("/hello.html") { req, res in
 #### macOS
 
 ```
-brew install nghttp2
+brew install nghttp2 libressl pkg-config
 ```
 
 #### Ubuntu 18.04
