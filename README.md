@@ -15,7 +15,7 @@ HTTP Server for IoT
 
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.2.0")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.2.1")
 ]
 ```
 
@@ -25,11 +25,6 @@ dependencies: [
 import ZenNIO
 
 let router = Router()
-
-// Optional authentication on: http://<ip>:<port>/auth
-router.addAuthentication(handler: { (email, password) -> (Bool) in
-    return email == "admin" && password == "admin"
-})
 
 router.get("/") { req, res in
     res.send(html: "<html><body><h1>Hello World!</h1></body></html>")
@@ -48,7 +43,7 @@ router.get("/hello/:name") { req, res in
         }
 
         let json = [
-            "ip": req.session.ip,
+            "ip": req.clientIp,
             "message": "Hello \(name)!"
         ]
         try res.send(json: json)
@@ -61,16 +56,24 @@ router.get("/hello/:name") { req, res in
     }
 }
 
-
 let server = ZenNIO(port: 8080, router: router)
-//server.webroot = "/Users/admin/Projects/zenNio/webroot"
 
-do {
-    try server.start()
-} catch {
-    print(error)
-}
+// Webroot with static files (optional)
+server.addWebroot(path: "/var/www/html")
 
+// CORS (optional)
+server.addCORS()
+
+// OAuth2 (optional: http://<ip>:<port>/auth)
+server.addAuthentication(handler: { (email, password) -> (Bool) in
+    return email == "admin" && password = "admin"
+})
+
+// SSL (optional)
+try server.addSSL(certFile: "./cert.pem", keyFile: "./key.pem", http: .v2)
+
+// Start server
+try server.start()
 ```
 
 ## Example Template

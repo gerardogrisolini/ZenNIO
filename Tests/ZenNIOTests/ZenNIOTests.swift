@@ -205,10 +205,10 @@ final class ZenNIOTests: XCTestCase {
         }
 
         let server = ZenNIO(router: router)
-        // Webroot with static files (optional)
-        server.addWebroot(path: "/Users/gerardo/Projects/github.com/Webretail/webroot/admin")
         /*
-         // CORS (optional)
+        // Webroot with static files (optional)
+        server.addWebroot(path: "/var/www/html")
+        // CORS (optional)
         server.addCORS()
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> (Bool) in
