@@ -36,13 +36,13 @@ class Authentication {
             //response.addHeader(.cache, value: "max-age=1440") // 1 days
             //response.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)
             
-            let html = self.provider.html(ip: request.session.ip)
+            let html = self.provider.html(ip: request.clientIp)
             response.send(html: html)
             response.completed()
         }
 
         router.post("/api/logout") { request, response in
-            ZenNIO.sessions.remove(id: request.session.id)
+            ZenNIO.sessions.remove(id: request.session!.id)
             //response.addHeader(.setCookie, value: "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             //response.addHeader(.setCookie, value: "sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             response.completed(.noContent)
@@ -58,7 +58,7 @@ class Authentication {
                 if self.handler(account.email, account.password) {
                     let data = Date().timeIntervalSinceNow.description.data(using: .utf8)!
                     let token = Token(bearer: data.base64EncodedString())
-                    let session = ZenNIO.sessions.new(id: request.session.id, token: token)
+                    let session = ZenNIO.sessions.new(id: request.session!.id, token: token)
                     ZenNIO.sessions.set(session: session)
                     //response.addHeader(.setCookie, value: "token=\(token.bearer)")
                     try response.send(json: token)

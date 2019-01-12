@@ -10,7 +10,9 @@ import NIO
 import NIOHTTP1
 
 public class HttpRequest {
-    public var session: Session!
+    public var eventLoop: EventLoop!
+    public var clientIp: String!
+    public var session: Session?
     public let head: HTTPRequestHead
     public let contentType: String
     private(set) public var body: [UInt8]
@@ -24,7 +26,7 @@ public class HttpRequest {
         self.paths = head.uri.split(separator: "/")
         self.body = body
         contentType = head.headers[HttpHeader.contentType.rawValue].first ?? ""
-        parseHeadParameters()
+        self.parseHeadParameters()
     }
 
     var authorization: String {
@@ -40,7 +42,7 @@ public class HttpRequest {
     }
 
     var isAuthenticated: Bool {
-        if let token = session.token {
+        if let token = session?.token {
             if authorization == "Bearer \(token.bearer)" {
                 return true
             }

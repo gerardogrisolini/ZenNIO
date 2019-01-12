@@ -24,7 +24,8 @@ public class ZenNIO {
     }
     static var router = Router()
     static var sessions = HttpSession()
-    static var cors: Bool = false
+    fileprivate var cors = false
+    fileprivate var session = false
     
     public init(
         host: String = "::1",
@@ -40,6 +41,14 @@ public class ZenNIO {
     
     private let cipherSuites = "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-CBC-SHA384:ECDHE-ECDSA-AES256-CBC-SHA:ECDHE-ECDSA-AES128-CBC-SHA256:ECDHE-ECDSA-AES128-CBC-SHA:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-CBC-SHA384:ECDHE-RSA-AES128-CBC-SHA256:ECDHE-RSA-AES128-CBC-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA"
     
+    public func addCORS() {
+        self.cors = true
+    }
+    
+    public func addSession() {
+        self.session = true
+    }
+
     public func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
         self.httpProtocol = http
         let config = TLSConfiguration.forServer(
@@ -62,10 +71,11 @@ public class ZenNIO {
     
     public func start() throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
-        let threadPool = BlockingIOThreadPool(numberOfThreads: 6)
+        let threadPool = BlockingIOThreadPool(numberOfThreads: System.coreCount)
         threadPool.start()
         
         let fileIO = NonBlockingFileIO(threadPool: threadPool)
+        let serverHandler = ServerHandler(fileIO: fileIO, htdocsPath: self.webroot, http: httpProtocol)
         let bootstrap = ServerBootstrap(group: group)
             // Specify backlog and enable SO_REUSEADDR for the server itself
             .serverChannelOption(ChannelOptions.backlog, value: 256)
@@ -77,7 +87,7 @@ public class ZenNIO {
                 _ = bootstrap.childChannelInitializer { channel in
                     return channel.pipeline.add(handler: try! OpenSSLServerHandler(context: sslContext)).then {
                         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).then {
-                            channel.pipeline.add(handler: ServerHandler(fileIO: fileIO, htdocsPath: self.webroot))
+                            channel.pipeline.add(handler: serverHandler)
                         }
                     }
                 }
@@ -87,7 +97,7 @@ public class ZenNIO {
                         return channel.pipeline.add(handler: HTTP2Parser(mode: .server)).then {
                             let multiplexer = HTTP2StreamMultiplexer { (channel, streamID) -> EventLoopFuture<Void> in
                                 return channel.pipeline.add(handler: HTTP2ToHTTP1ServerCodec(streamID: streamID)).then { () -> EventLoopFuture<Void> in
-                                    channel.pipeline.add(handler: ServerHandler(fileIO: fileIO, htdocsPath: self.webroot, http: .v2))
+                                    channel.pipeline.add(handler: serverHandler)
                                 }
                             }
                             return channel.pipeline.add(handler: multiplexer)
@@ -98,7 +108,7 @@ public class ZenNIO {
         } else {
             _ = bootstrap.childChannelInitializer { channel in
                 return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).then {
-                    channel.pipeline.add(handler: ServerHandler(fileIO: fileIO, htdocsPath: self.webroot))
+                    channel.pipeline.add(handler: serverHandler)
                 }
             }
         }

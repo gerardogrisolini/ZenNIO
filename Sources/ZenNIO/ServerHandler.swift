@@ -42,12 +42,20 @@ final class ServerHandler: ChannelInboundHandler {
     
     private var infoSavedRequestHead: HTTPRequestHead?
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
-    private var handlerFuture: EventLoopFuture<Void>?
     private let fileIO: NonBlockingFileIO
+    private let cors: Bool
+    private let session: Bool
     
-    public init(fileIO: NonBlockingFileIO, htdocsPath: String, http: HttpProtocol = .v1) {
+    public init(
+        fileIO: NonBlockingFileIO,
+        htdocsPath: String,
+        http: HttpProtocol = .v1,
+        cors: Bool = false,
+        session: Bool = false) {
         self.htdocsPath = htdocsPath
         self.fileIO = fileIO
+        self.cors = cors
+        self.session = session
     }
     
     func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
@@ -61,69 +69,69 @@ final class ServerHandler: ChannelInboundHandler {
             self.savedBodyBytes.append(contentsOf: buf.getBytes(at: 0, length: buf.readableBytes)!)
         case .end:
             self.state.requestComplete()
+            
             var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
             savedBodyBytes.removeAll()
-            
             let route = ZenNIO.getRoute(request: &request)
             guard route?.handler != nil else {
                 fileRequest(ctx: ctx, request: infoSavedRequestHead!)
                 return
             }
             
-            processRequest(ctx: ctx, request: request, route: route)
+            request.clientIp = ctx.channel.remoteAddress!.description
+            request.eventLoop = ctx.eventLoop
+            processRequest(request: request, route: route)
                 .whenSuccess { response in
                     self.processResponse(ctx: ctx, response: response)
             }
         }
     }
+
+    private func processCORS(_ request: HttpRequest, _ response: HttpResponse) -> Bool {
+        response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
+        response.headers.add(name: "Access-Control-Allow-Headers", value: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range")
+        response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE")
+        if request.head.method == .OPTIONS {
+            response.headers.add(name: "Access-Control-Max-Age", value: "86400")
+            response.headers.add(name: "Content-Type", value: "text/plain; charset=utf-8")
+            response.completed(.noContent)
+            return true;
+        } else {
+            response.headers.add(name: "Access-Control-Expose-Headers", value: "Content-Length,Content-Range")
+            return false;
+        }
+    }
     
-    private func processRequest(ctx: ChannelHandlerContext, request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
-        let promise = ctx.eventLoop.newPromise(of: HttpResponse.self)
-        ctx.eventLoop.execute {
-            
+    private func processSession(_ request: HttpRequest, _ response: HttpResponse, _ secure: Bool) -> Bool {
+        var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
+        if session == nil {
+            session = ZenNIO.sessions.new()
+            if request.referer.isEmpty {
+                ZenNIO.sessions.set(session: session!)
+                response.addHeader(.setCookie, value: "sessionId=\(session!.id); expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;")
+            }
+        }
+        request.setSession(session!)
+        return secure && !request.isAuthenticated
+    }
+
+    private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
+        let promise = request.eventLoop.newPromise(of: HttpResponse.self)
+//        request.eventLoop.execute {
             let response = HttpResponse(promise: promise)
-            if request.head.method == .OPTIONS {
-                
-                response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
-                response.headers.add(name: "Access-Control-Allow-Headers", value: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range")
-                response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE")
-                response.headers.add(name: "Access-Control-Max-Age", value: "86400")
-                response.headers.add(name: "Content-Type", value: "text/plain; charset=utf-8")
+            if cors, processCORS(request, response) {
                 response.completed(.noContent)
-                
             } else if let route = route {
-                
-                if ZenNIO.cors {
-                    response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
-                    response.headers.add(name: "Access-Control-Allow-Headers", value: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range")
-                    response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE")
-                    response.headers.add(name: "Access-Control-Expose-Headers", value: "Content-Length,Content-Range")
-                }
-                
-                var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
-                if session == nil {
-                    session = ZenNIO.sessions.new()
-                    if request.referer.isEmpty {
-                        ZenNIO.sessions.set(session: session!)
-                        response.addHeader(.setCookie, value: "sessionId=\(session!.id); expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;")
-                    }
-                }
-                session!.ip = ctx.channel.remoteAddress!.description
-                session!.eventLoop = ctx.eventLoop
-                request.setSession(session!)
-                
-                if route.secure && !request.isAuthenticated {
+                if session, processSession(request, response, route.secure) {
                     response.completed(.unauthorized)
                 } else {
                     request.parseRequest()
                     route.handler!(request, response)
                 }
-                
             } else {
                 response.completed(.notFound)
             }
-        }
-        
+//        }
         return promise.futureResult
     }
     
@@ -174,30 +182,30 @@ final class ServerHandler: ChannelInboundHandler {
                                            chunkSize: 32 * 1024,
                                            allocator: ctx.channel.allocator,
                                            eventLoop: ctx.eventLoop) { buffer in
-                                            if !responseStarted {
-                                                responseStarted = true
-                                                ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                                            }
-                                            return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
-                }.then { () -> EventLoopFuture<Void> in
-                    let p = ctx.eventLoop.newPromise(of: Void.self)
-                    self.completeResponse(ctx, trailers: nil, promise: p)
-                    return p.futureResult
-                }.thenIfError { error in
-                    if !responseStarted {
-                        let response = self.httpResponseHead(request: request, status: .ok)
-                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                        var buffer = ctx.channel.allocator.buffer(capacity: 100)
-                        buffer.write(string: "fail: \(error)")
-                        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
-                        self.state.responseComplete()
-                        return ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
-                    } else {
-                        return ctx.close()
-                    }
-                }.whenComplete {
-                    _ = try? file.close()
-            }
+                                                if !responseStarted {
+                                                    responseStarted = true
+                                                    ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                                                }
+                                                return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
+                                           }.then { () -> EventLoopFuture<Void> in
+                                                let p = ctx.eventLoop.newPromise(of: Void.self)
+                                                self.completeResponse(ctx, trailers: nil, promise: p)
+                                                return p.futureResult
+                                           }.thenIfError { error in
+                                                if !responseStarted {
+                                                    let response = self.httpResponseHead(request: request, status: .ok)
+                                                    ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                                                    var buffer = ctx.channel.allocator.buffer(capacity: 100)
+                                                    buffer.write(string: "fail: \(error)")
+                                                    ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
+                                                    self.state.responseComplete()
+                                                    return ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
+                                                } else {
+                                                    return ctx.close()
+                                                }
+                                           }.whenComplete {
+                                                _ = try? file.close()
+                                           }
         }
         
         func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {

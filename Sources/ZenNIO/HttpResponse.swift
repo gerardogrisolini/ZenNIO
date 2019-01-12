@@ -10,6 +10,7 @@ import NIO
 import NIOHTTP1
 import Stencil
 
+
 public class HttpResponse {
     var status: HTTPResponseStatus = .ok
     var headers = HTTPHeaders()
@@ -46,7 +47,7 @@ public class HttpResponse {
         send(data: html.data(using: .utf8)!)
     }
     
-    public func send(template: String, context: [String : Any]) throws {
+    public func send(template: String, context: [String : Any] = [:]) throws {
         let fsLoader = FileSystemLoader(paths: ["templates/"])
         let environment = Environment(loader: fsLoader)
         let html = try environment.renderTemplate(name: template, context: context)
@@ -58,17 +59,17 @@ public class HttpResponse {
         self.status = status
         if status.code > 300 {
             let html = """
-            <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-            <html>
-            <head>
-            <title>\(status.reasonPhrase)</title>
-            </head>
-            <body>
-            <p>\(headers[HttpHeader.server.rawValue].first!)</p>
-            <h1>\(status.code) - \(status.reasonPhrase)</h1>
-            </body>
-            </html>
-            """
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html>
+<head>
+    <title>\(status.reasonPhrase)</title>
+</head>
+<body>
+    <p>\(headers[HttpHeader.server.rawValue].first!)</p>
+    <h1>\(status.code) - \(status.reasonPhrase)</h1>
+</body>
+</html>
+"""
             send(html: html)
         }
         addHeader(.contentLength, value: "\(body?.count ?? 0)")

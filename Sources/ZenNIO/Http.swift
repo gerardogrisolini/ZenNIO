@@ -50,15 +50,11 @@ public enum HttpError: Swift.Error {
 
 public struct Session {
     public let id: String
-    public var ip: String
     public var date: Date
     public var token: Token?
-    public var eventLoop: EventLoop!
     
     public init(id: String) {
         self.id = id
-        self.ip = ""
         self.date = Date()
-        self.eventLoop = nil
     }
 }

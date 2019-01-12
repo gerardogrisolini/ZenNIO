@@ -12,9 +12,6 @@ extension Router {
         ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
         Authentication(handler: handler).makeRoutesAndHandlers(router: self)
     }
-    public func addCORS() {
-        ZenNIO.cors = true
-    }
 }
 
 extension String {
