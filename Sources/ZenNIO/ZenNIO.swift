@@ -39,7 +39,7 @@ public class ZenNIO {
         htdocsPath = path
         ZenNIO.router.initFolder(webroot: path)
     }
-
+    
     public func addCORS() {
         self.cors = true
     }
@@ -49,7 +49,7 @@ public class ZenNIO {
         ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
         Authentication(handler: handler).makeRoutesAndHandlers(router: ZenNIO.router)
     }
-
+    
     public func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
         self.httpProtocol = http
         let config = TLSConfiguration.forServer(
@@ -77,26 +77,25 @@ public class ZenNIO {
             try! threadPool.syncShutdownGracefully()
             try! group.syncShutdownGracefully()
         }
-
-        let bootstrap = ServerBootstrap(group: group)
-            // Specify backlog and enable SO_REUSEADDR for the server itself
-            .serverChannelOption(ChannelOptions.backlog, value: 256)
-            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         
         var fileIO: NonBlockingFileIO? = nil
         if !htdocsPath.isEmpty {
             threadPool.start()
             fileIO = NonBlockingFileIO(threadPool: threadPool)
         }
-        let serverHandler = ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath, http: httpProtocol)
-
+        
+        let bootstrap = ServerBootstrap(group: group)
+            // Specify backlog and enable SO_REUSEADDR for the server itself
+            .serverChannelOption(ChannelOptions.backlog, value: 256)
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        
         // Set the handlers that are applied to the accepted Channels
         if let sslContext = self.sslContext {
             if httpProtocol == .v1 {
                 _ = bootstrap.childChannelInitializer { channel in
                     return channel.pipeline.add(handler: try! OpenSSLServerHandler(context: sslContext)).then {
                         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).then {
-                            channel.pipeline.add(handler: serverHandler)
+                            channel.pipeline.add(handler: ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                         }
                     }
                 }
@@ -106,7 +105,7 @@ public class ZenNIO {
                         return channel.pipeline.add(handler: HTTP2Parser(mode: .server)).then {
                             let multiplexer = HTTP2StreamMultiplexer { (channel, streamID) -> EventLoopFuture<Void> in
                                 return channel.pipeline.add(handler: HTTP2ToHTTP1ServerCodec(streamID: streamID)).then { () -> EventLoopFuture<Void> in
-                                    channel.pipeline.add(handler: serverHandler)
+                                    channel.pipeline.add(handler: ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath, http: .v2))
                                 }
                             }
                             return channel.pipeline.add(handler: multiplexer)
@@ -117,7 +116,7 @@ public class ZenNIO {
         } else {
             _ = bootstrap.childChannelInitializer { channel in
                 return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).then {
-                    channel.pipeline.add(handler: serverHandler)
+                    channel.pipeline.add(handler: ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                 }
             }
         }
@@ -153,4 +152,5 @@ func debugPrint(_ object: Any) {
     Swift.print(object)
     #endif
 }
+
 
