@@ -43,20 +43,14 @@ final class ServerHandler: ChannelInboundHandler {
     private var infoSavedRequestHead: HTTPRequestHead?
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
     private let fileIO: NonBlockingFileIO?
-    private let cors: Bool
-    private let session: Bool
     
     public init(
         fileIO: NonBlockingFileIO?,
         htdocsPath: String,
-        http: HttpProtocol = .v1,
-        cors: Bool = false,
-        session: Bool = false
+        http: HttpProtocol = .v1
     ) {
         self.fileIO = fileIO
         self.htdocsPath = htdocsPath
-        self.cors = cors
-        self.session = session
     }
     
     func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
@@ -120,10 +114,10 @@ final class ServerHandler: ChannelInboundHandler {
         let promise = request.eventLoop.newPromise(of: HttpResponse.self)
 //        request.eventLoop.execute {
             let response = HttpResponse(promise: promise)
-            if cors, processCORS(request, response) {
+            if ZenNIO.cors, processCORS(request, response) {
                 response.completed(.noContent)
             } else if let route = route {
-                if session, processSession(request, response, route.secure) {
+                if ZenNIO.session, processSession(request, response, route.secure) {
                     response.completed(.unauthorized)
                 } else {
                     request.parseRequest()

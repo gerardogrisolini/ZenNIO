@@ -20,8 +20,8 @@ public class ZenNIO {
     public var htdocsPath: String = ""
     static var router = Router()
     static var sessions = HttpSession()
-    fileprivate var cors = false
-    fileprivate var session = false
+    static var cors = false
+    static var session = false
     
     public init(
         host: String = "::1",
@@ -41,11 +41,11 @@ public class ZenNIO {
     }
     
     public func addCORS() {
-        self.cors = true
+        ZenNIO.cors = true
     }
     
     public func addAuthentication(handler: @escaping Login) {
-        self.session = true
+        ZenNIO.session = true
         ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
         Authentication(handler: handler).makeRoutesAndHandlers(router: ZenNIO.router)
     }
