@@ -16,11 +16,6 @@ final class ZenNIOTests: XCTestCase {
         
         let router = Router()
         
-        // Authentication
-        router.addAuthentication(handler: { (email, password) -> (Bool) in
-            return email == password
-        })
-        
         // Default page (text/html)
         router.get("/") { req, res in
             let html = """
@@ -224,15 +219,24 @@ cityAnimals: \(cityAnimals.joined(separator: ","))
         }
 
         let server = ZenNIO(router: router)
-//        server.webroot = "/Users/admin/Projects/ZenNIO/webroot"
-
-//        XCTAssertNoThrow(
-//            try server.addSSL(
-//                certFile: "/Users/admin/Projects/ZenNIO/cert.pem",
-//                keyFile: "/Users/admin/Projects/ZenNIO/key.pem",
-//                http: .v2
-//            )
-//        )
+        /*
+        // Webroot with static files (optional)
+        server.addWebroot(path: "/var/www/html")
+        // CORS (optional)
+        server.addCORS()
+        // OAuth2 (optional)
+        server.addAuthentication(handler: { (email, password) -> (Bool) in
+            return email == password
+        })
+        // SSL (optional)
+        XCTAssertNoThrow(
+            try server.addSSL(
+                certFile: "./cert.pem",
+                keyFile: "./key.pem",
+                http: .v2
+            )
+        )
+        */
         XCTAssertNoThrow(try server.start())
     }
 

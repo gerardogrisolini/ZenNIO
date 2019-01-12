@@ -42,18 +42,28 @@ final class ServerHandler: ChannelInboundHandler {
     
     private var infoSavedRequestHead: HTTPRequestHead?
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
-    private let fileIO: NonBlockingFileIO
+    private let fileIO: NonBlockingFileIO?
     private let cors: Bool
     private let session: Bool
     
     public init(
-        fileIO: NonBlockingFileIO,
         htdocsPath: String,
         http: HttpProtocol = .v1,
         cors: Bool = false,
         session: Bool = false) {
+        
         self.htdocsPath = htdocsPath
-        self.fileIO = fileIO
+        if !self.htdocsPath.isEmpty {
+            let threadPool = BlockingIOThreadPool(numberOfThreads: System.coreCount)
+            threadPool.start()
+            self.fileIO = NonBlockingFileIO(threadPool: threadPool)
+            defer {
+                try! threadPool.syncShutdownGracefully()
+            }
+        } else {
+            self.fileIO = nil
+        }
+        
         self.cors = cors
         self.session = session
     }
@@ -164,7 +174,7 @@ final class ServerHandler: ChannelInboundHandler {
     
     fileprivate func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
         let path = self.htdocsPath + request.uri
-        let fileHandleAndRegion = self.fileIO.openFile(path: path, eventLoop: ctx.eventLoop)
+        let fileHandleAndRegion = self.fileIO!.openFile(path: path, eventLoop: ctx.eventLoop)
         fileHandleAndRegion.whenFailure {
             switch $0 {
             case let e as IOError where e.errnoCode == ENOENT:
@@ -178,7 +188,7 @@ final class ServerHandler: ChannelInboundHandler {
         fileHandleAndRegion.whenSuccess { (file, region) in
             var responseStarted = false
             let response = responseHead(request: request, fileRegion: region, contentType: path.contentType)
-            return self.fileIO.readChunked(fileRegion: region,
+            return self.fileIO!.readChunked(fileRegion: region,
                                            chunkSize: 32 * 1024,
                                            allocator: ctx.channel.allocator,
                                            eventLoop: ctx.eventLoop) { buffer in

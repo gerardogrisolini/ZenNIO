@@ -17,11 +17,7 @@ public class ZenNIO {
     
     public let port: Int
     public let host: String
-    public var webroot: String {
-        didSet {
-            ZenNIO.router.initFolder(webroot: webroot)
-        }
-    }
+    public var htdocsPath: String = ""
     static var router = Router()
     static var sessions = HttpSession()
     fileprivate var cors = false
@@ -30,23 +26,28 @@ public class ZenNIO {
     public init(
         host: String = "::1",
         port: Int = 8888,
-        webroot: String = "/dev/null/",
         router: Router = Router()
         ) {
         self.host = host
         self.port = port
-        self.webroot = webroot
         ZenNIO.router = router
     }
     
     private let cipherSuites = "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-CBC-SHA384:ECDHE-ECDSA-AES256-CBC-SHA:ECDHE-ECDSA-AES128-CBC-SHA256:ECDHE-ECDSA-AES128-CBC-SHA:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-CBC-SHA384:ECDHE-RSA-AES128-CBC-SHA256:ECDHE-RSA-AES128-CBC-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA"
     
+    public func addWebroot(path: String = "./webroot") {
+        htdocsPath = path
+        ZenNIO.router.initFolder(webroot: path)
+    }
+
     public func addCORS() {
         self.cors = true
     }
     
-    public func addSession() {
+    public func addAuthentication(handler: @escaping Login) {
         self.session = true
+        ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
+        Authentication(handler: handler).makeRoutesAndHandlers(router: ZenNIO.router)
     }
 
     public func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
@@ -71,16 +72,12 @@ public class ZenNIO {
     
     public func start() throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
-        let threadPool = BlockingIOThreadPool(numberOfThreads: System.coreCount)
-        threadPool.start()
-        
-        let fileIO = NonBlockingFileIO(threadPool: threadPool)
-        let serverHandler = ServerHandler(fileIO: fileIO, htdocsPath: self.webroot, http: httpProtocol)
         let bootstrap = ServerBootstrap(group: group)
             // Specify backlog and enable SO_REUSEADDR for the server itself
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        
+        let serverHandler = ServerHandler(htdocsPath: self.htdocsPath, http: httpProtocol)
+
         // Set the handlers that are applied to the accepted Channels
         if let sslContext = self.sslContext {
             if httpProtocol == .v1 {
@@ -121,7 +118,6 @@ public class ZenNIO {
         
         defer {
             try! group.syncShutdownGracefully()
-            try! threadPool.syncShutdownGracefully()
         }
         
         let channel = try { () -> Channel in

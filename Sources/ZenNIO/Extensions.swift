@@ -7,13 +7,6 @@
 
 import Foundation
 
-extension Router {
-    public func addAuthentication(handler: @escaping Login) {
-        ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
-        Authentication(handler: handler).makeRoutesAndHandlers(router: self)
-    }
-}
-
 extension String {
 
     func chopPrefix(_ prefix: String) -> String? {
