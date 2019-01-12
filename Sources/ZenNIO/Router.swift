@@ -7,6 +7,7 @@
 
 import Foundation
 import NIOHTTP1
+import PathKit
 
 extension HTTPMethod : Hashable {
     public func hash(into hasher: inout Hasher) {
@@ -72,10 +73,11 @@ public class Router {
     }
     
     func addHandler(secure: Bool = false, method: HTTPMethod, uri: String, handler: @escaping HttpHandler) {
-//        var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: method, uri: uri))
-//        if getRoute(request: &request) != nil {
-//            print("Warning: overwritten route \(method) \(uri) already recorded.")
-//        }
+        var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: method, uri: uri))
+        if getRoute(request: &request) != nil {
+            print("Warning: duplicated route \(method) \(uri).")
+            return
+        }
 
         let regex = RouteRegex.sharedInstance.buildRegex(fromPattern: uri)
         //debugPrint(regex)
@@ -94,14 +96,15 @@ public class Router {
     }
     
     func initFolder(webroot: String) {
-        if webroot == "/dev/null/" { return }
         do {
-            let uris = try getStaticFiles(path: webroot)
-            uris.forEach { uri in
-                addFileHandler(uri: uri)
-            }
+            let uris = try Path(webroot).recursiveChildren()
             print("Webroot: \(webroot)")
-            debugPrint(uris, separator: "\r\n", terminator: "\r\n")
+            uris.forEach { uri in
+                let path = uri.description.replacingOccurrences(of: webroot, with: "")
+                debugPrint(path)
+                addFileHandler(uri: path)
+                debugPrint(path)
+            }
         } catch {
             print(error.localizedDescription)
         }
@@ -110,26 +113,5 @@ public class Router {
     func addFileHandler(uri: String) {
         let route = Route(secure: false, pattern: uri, regex: nil, handler: nil, params: [:])
         append(method: .GET, route: route)
-    }
-    
-    fileprivate func getStaticFiles(path: String, subPath: String = "") throws -> [String] {
-        var urls = [String]()
-        
-        let fileManager = FileManager.default
-        let fileURLs = try fileManager.contentsOfDirectory(atPath: path + subPath)
-        
-        fileURLs.forEach({ file in
-            if file.hasPrefix(".") { return }
-            var isDir: ObjCBool = false
-            if fileManager.fileExists(atPath: "\(path)\(subPath)/\(file)", isDirectory: &isDir) {
-                if isDir.boolValue {
-                    urls.append(contentsOf: try! getStaticFiles(path: path, subPath: "/\(file)"))
-                } else {
-                    urls.append("\(subPath)/\(file)")
-                }
-            }
-        })
-        
-        return urls
     }
 }

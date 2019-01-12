@@ -52,7 +52,6 @@ final class ZenNIOTests: XCTestCase {
 <body style='text-align:center;'>
     <h1>Welcome to ZenNIO!</h1>
     <p><a href="/auth">Authentication</a></p>
-    <p><a href="/farm">Farm</a></p>
     <p><a href="/hello">Hello</a></p>
     <hr>
     <p><a href="/client?id=10">Get (text/html)</a></p>
@@ -168,19 +167,6 @@ final class ZenNIOTests: XCTestCase {
             }
         }
         
-        router.get("/farm") { req, res in
-            let houseAnimals: Set = ["🐶", "🐱"]
-            let farmAnimals: Set = ["🐮", "🐔", "🐑", "🐶", "🐱"]
-            let cityAnimals: Set = ["🐦", "🐭"]
-            
-            let content = """
-houseAnimals: \(houseAnimals.joined(separator: ","))
-farmAnimals: \(farmAnimals.joined(separator: ","))
-cityAnimals: \(cityAnimals.joined(separator: ","))
-"""
-            res.send(text: content)
-            res.completed()
-        }
 
         router.get("/hello") { req, res in
             res.send(text: "Hello World!")
@@ -219,10 +205,10 @@ cityAnimals: \(cityAnimals.joined(separator: ","))
         }
 
         let server = ZenNIO(router: router)
-        /*
         // Webroot with static files (optional)
-        server.addWebroot(path: "/var/www/html")
-        // CORS (optional)
+        server.addWebroot(path: "/Users/gerardo/Projects/github.com/Webretail/webroot/admin")
+        /*
+         // CORS (optional)
         server.addCORS()
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> (Bool) in

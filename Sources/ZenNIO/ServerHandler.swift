@@ -47,23 +47,14 @@ final class ServerHandler: ChannelInboundHandler {
     private let session: Bool
     
     public init(
+        fileIO: NonBlockingFileIO?,
         htdocsPath: String,
         http: HttpProtocol = .v1,
         cors: Bool = false,
-        session: Bool = false) {
-        
+        session: Bool = false
+    ) {
+        self.fileIO = fileIO
         self.htdocsPath = htdocsPath
-        if !self.htdocsPath.isEmpty {
-            let threadPool = BlockingIOThreadPool(numberOfThreads: System.coreCount)
-            threadPool.start()
-            self.fileIO = NonBlockingFileIO(threadPool: threadPool)
-            defer {
-                try! threadPool.syncShutdownGracefully()
-            }
-        } else {
-            self.fileIO = nil
-        }
-        
         self.cors = cors
         self.session = session
     }
@@ -182,7 +173,7 @@ final class ServerHandler: ChannelInboundHandler {
             case let e as IOError:
                 print("IOError (other)")
             default:
-                print("\(type(of: $0)) error")
+                print("\($0): \(type(of: $0)) error")
             }
         }
         fileHandleAndRegion.whenSuccess { (file, region) in

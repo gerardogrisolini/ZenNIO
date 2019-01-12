@@ -71,12 +71,24 @@ public class ZenNIO {
     }
     
     public func start() throws {
+        let threadPool = BlockingIOThreadPool(numberOfThreads: System.coreCount)
         let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
+        defer {
+            try! threadPool.syncShutdownGracefully()
+            try! group.syncShutdownGracefully()
+        }
+
         let bootstrap = ServerBootstrap(group: group)
             // Specify backlog and enable SO_REUSEADDR for the server itself
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        let serverHandler = ServerHandler(htdocsPath: self.htdocsPath, http: httpProtocol)
+        
+        var fileIO: NonBlockingFileIO? = nil
+        if !htdocsPath.isEmpty {
+            threadPool.start()
+            fileIO = NonBlockingFileIO(threadPool: threadPool)
+        }
+        let serverHandler = ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath, http: httpProtocol)
 
         // Set the handlers that are applied to the accepted Channels
         if let sslContext = self.sslContext {
@@ -115,10 +127,6 @@ public class ZenNIO {
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 1)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
-        
-        defer {
-            try! group.syncShutdownGracefully()
-        }
         
         let channel = try { () -> Channel in
             return try bootstrap.bind(host: host, port: port).wait()
