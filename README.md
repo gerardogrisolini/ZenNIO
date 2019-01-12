@@ -15,7 +15,7 @@ HTTP Server for IoT
 
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.2.1")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.2.2")
 ]
 ```
 
@@ -81,14 +81,14 @@ try server.start()
 ### templates/hello.html
 ```
 ...
-Hello {{ name}}!
+<h1>Hello {{ name}}!</h1>
 
-There are {{ items.count }} items.
+<p>There are {{ items.count }} items.</p>
 
 <ul>
-{% for item in items %}
-<li>{{ item }}</li>
-{% endfor %}
+    {% for item in items %}
+    <li>{{ item }}</li>
+    {% endfor %}
 </ul>
 ...
 ```

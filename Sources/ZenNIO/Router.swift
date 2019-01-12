@@ -101,7 +101,6 @@ public class Router {
             print("Webroot: \(webroot)")
             uris.forEach { uri in
                 let path = uri.description.replacingOccurrences(of: webroot, with: "")
-                debugPrint(path)
                 addFileHandler(uri: path)
                 debugPrint(path)
             }
@@ -109,6 +108,7 @@ public class Router {
             print(error.localizedDescription)
         }
     }
+
     
     func addFileHandler(uri: String) {
         let route = Route(secure: false, pattern: uri, regex: nil, handler: nil, params: [:])
