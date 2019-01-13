@@ -68,11 +68,11 @@ final class ServerHandler: ChannelInboundHandler {
             var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
             savedBodyBytes.removeAll()
             let route = ZenNIO.getRoute(request: &request)
-            guard route?.handler != nil else {
+            if route != nil && route?.handler == nil {
                 fileRequest(ctx: ctx, request: infoSavedRequestHead!)
                 return
             }
-            
+
             request.clientIp = ctx.channel.remoteAddress!.description
             request.eventLoop = ctx.eventLoop
             processRequest(request: request, route: route)
