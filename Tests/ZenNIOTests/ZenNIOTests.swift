@@ -209,6 +209,7 @@ final class ZenNIOTests: XCTestCase {
             return email == password
         })
         router.addFilter(method: .POST, url: "/*")
+
         /*
         // Webroot with static files (optional)
         server.addWebroot(path: "/var/www/html")
