@@ -15,7 +15,7 @@ HTTP Server for IoT
 
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.2.5")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.3.0")
 ]
 ```
 
