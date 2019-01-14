@@ -40,16 +40,6 @@ public class ZenNIO {
         ZenNIO.router.initFolder(webroot: path)
     }
     
-    public func addCORS() {
-        ZenNIO.cors = true
-    }
-    
-    public func addAuthentication(handler: @escaping Login) {
-        ZenNIO.session = true
-        ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
-        Authentication(handler: handler).makeRoutesAndHandlers(router: ZenNIO.router)
-    }
-    
     public func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
         self.httpProtocol = http
         let config = TLSConfiguration.forServer(
@@ -66,6 +56,20 @@ public class ZenNIO {
         sslContext = try! SSLContext(configuration: config)
     }
     
+    public func addCORS() {
+        ZenNIO.cors = true
+    }
+    
+    public func addAuthentication(handler: @escaping Login) {
+        ZenNIO.session = true
+        ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
+        Authentication(handler: handler).makeRoutesAndHandlers(router: ZenNIO.router)
+    }
+
+    public func addFilter(method: HTTPMethod, url: String) {
+        ZenNIO.router.addFilter(method: method, url: url)
+    }
+
     static func getRoute(request: inout HttpRequest) -> Route? {
         return self.router.getRoute(request: &request)
     }

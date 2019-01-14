@@ -80,7 +80,7 @@ final class ZenNIOTests: XCTestCase {
         }
 
         // Post account (application/json) JWT required
-        router.post("/api/client", secure: true) { req, res in
+        router.post("/api/client") { req, res in
             do {
                 guard req.body.count > 0 else {
                     throw HttpError.badRequest
@@ -97,7 +97,7 @@ final class ZenNIOTests: XCTestCase {
                 res.completed(.internalServerError)
             }
         }
-
+        
         // Get account (application/json)
         router.get("/api/client/:id") { req, res in
             do {
@@ -118,7 +118,7 @@ final class ZenNIOTests: XCTestCase {
         }
 
         // Post account (text/html) JWT required
-        router.post("/client", secure: true) { req, res in
+        router.post("/client") { req, res in
             do {
                 guard let name = req.getParam(String.self, key: "name"),
                     let email = req.getParam(String.self, key: "email") else {
@@ -147,7 +147,7 @@ final class ZenNIOTests: XCTestCase {
         }
 
         // Upload file (text/html) JWT required
-        router.post("/upload", secure: true) { req, res in
+        router.post("/upload") { req, res in
             do {
                 guard let fileName = req.getParam(String.self, key: "file"),
                     let file = req.getParam(Data.self, key: fileName),
@@ -166,7 +166,6 @@ final class ZenNIOTests: XCTestCase {
                 res.completed(.internalServerError)
             }
         }
-        
 
         router.get("/hello") { req, res in
             res.send(text: "Hello World!")
@@ -205,15 +204,16 @@ final class ZenNIOTests: XCTestCase {
         }
 
         let server = ZenNIO(router: router)
+        // OAuth2 (optional)
+        server.addAuthentication(handler: { (email, password) -> (Bool) in
+            return email == password
+        })
+        router.addFilter(method: .POST, url: "/*")
         /*
         // Webroot with static files (optional)
         server.addWebroot(path: "/var/www/html")
         // CORS (optional)
         server.addCORS()
-        // OAuth2 (optional)
-        server.addAuthentication(handler: { (email, password) -> (Bool) in
-            return email == password
-        })
         // SSL (optional)
         XCTAssertNoThrow(
             try server.addSSL(

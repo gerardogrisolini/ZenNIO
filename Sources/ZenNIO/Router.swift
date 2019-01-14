@@ -18,7 +18,7 @@ extension HTTPMethod : Hashable {
 public typealias HttpHandler = ((HttpRequest, HttpResponse) -> ())
 
 struct Route {
-    let secure: Bool
+    var filter: Bool
     var pattern: String
     var regex: NSRegularExpression?
     var handler: HttpHandler?
@@ -26,27 +26,40 @@ struct Route {
 }
 
 public class Router {
-   
     private var routes: Dictionary<HTTPMethod, [Route]>
    
     public init() {
         routes = Dictionary<HTTPMethod, [Route]>()
     }
 
-    public func get(_ uri: String, secure: Bool = false, handler: @escaping HttpHandler) {
-        addHandler(secure: secure, method: .GET, uri: uri, handler: handler)
+    public func get(_ uri: String, handler: @escaping HttpHandler) {
+        addHandler(method: .GET, uri: uri, handler: handler)
     }
     
-    public func post(_ uri: String, secure: Bool = false, handler: @escaping HttpHandler) {
-        addHandler(secure: secure, method: .POST, uri: uri, handler: handler)
+    public func post(_ uri: String, handler: @escaping HttpHandler) {
+        addHandler(method: .POST, uri: uri, handler: handler)
     }
 
-    public func put(_ uri: String, secure: Bool = false, handler: @escaping HttpHandler) {
-        addHandler(secure: secure, method: .PUT, uri: uri, handler: handler)
+    public func put(_ uri: String, handler: @escaping HttpHandler) {
+        addHandler(method: .PUT, uri: uri, handler: handler)
     }
 
-    public func delete(_ uri: String, secure: Bool = false, handler: @escaping HttpHandler) {
-        addHandler(secure: secure, method: .DELETE, uri: uri, handler: handler)
+    public func delete(_ uri: String, handler: @escaping HttpHandler) {
+        addHandler(method: .DELETE, uri: uri, handler: handler)
+    }
+    
+    func addFilter(method: HTTPMethod, url: String) {
+        if routes[method] == nil { return }
+        for index in routes[method]!.indices {
+            if url.last == "*" {
+                let count = url.count - (url.count == 2 ? 1 : 2)
+                if routes[method]![index].pattern.hasPrefix(url.prefix(count)) {
+                    routes[method]![index].filter = true
+                }
+            } else if routes[method]![index].pattern == url {
+                routes[method]![index].filter = true
+            }
+        }
     }
     
     func getRoute(request: inout HttpRequest) -> Route? {
@@ -72,7 +85,7 @@ public class Router {
         routes[method]!.append(route)
     }
     
-    func addHandler(secure: Bool = false, method: HTTPMethod, uri: String, handler: @escaping HttpHandler) {
+    func addHandler(method: HTTPMethod, uri: String, handler: @escaping HttpHandler) {
         var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: method, uri: uri))
         if getRoute(request: &request) != nil {
             print("Warning: duplicated route \(method) \(uri).")
@@ -91,7 +104,7 @@ public class Router {
             }
         }
         
-        let route = Route(secure: secure, pattern: uri, regex: regex.0, handler: handler, params: params)
+        let route = Route(filter: false, pattern: uri, regex: regex.0, handler: handler, params: params)
         append(method: method, route: route)
     }
     
@@ -109,9 +122,8 @@ public class Router {
         }
     }
 
-    
     func addFileHandler(uri: String) {
-        let route = Route(secure: false, pattern: uri, regex: nil, handler: nil, params: [:])
+        let route = Route(filter: false, pattern: uri, regex: nil, handler: nil, params: [:])
         append(method: .GET, route: route)
     }
 }

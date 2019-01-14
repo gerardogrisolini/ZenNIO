@@ -97,7 +97,7 @@ final class ServerHandler: ChannelInboundHandler {
         }
     }
     
-    private func processSession(_ request: HttpRequest, _ response: HttpResponse, _ secure: Bool) -> Bool {
+    private func processSession(_ request: HttpRequest, _ response: HttpResponse, _ filter: Bool) -> Bool {
         var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
         if session == nil {
             session = ZenNIO.sessions.new()
@@ -107,7 +107,7 @@ final class ServerHandler: ChannelInboundHandler {
             }
         }
         request.setSession(session!)
-        return secure && !request.isAuthenticated
+        return filter && !request.isAuthenticated
     }
 
     private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
@@ -117,7 +117,7 @@ final class ServerHandler: ChannelInboundHandler {
             if ZenNIO.cors, processCORS(request, response) {
                 response.completed(.noContent)
             } else if let route = route {
-                if ZenNIO.session, processSession(request, response, route.secure) {
+                if ZenNIO.session, processSession(request, response, route.filter) {
                     response.completed(.unauthorized)
                 } else {
                     request.parseRequest()
