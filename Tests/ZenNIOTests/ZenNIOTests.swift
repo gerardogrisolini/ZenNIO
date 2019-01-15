@@ -198,21 +198,19 @@ final class ZenNIOTests: XCTestCase {
             return email == password
         })
         server.addFilter(method: .POST, url: "/*")
+//        // Webroot with static files (optional)
+//        server.addWebroot(path: "/var/www/html")
+//        // CORS (optional)
+//        server.addCORS()
+//        // SSL (optional)
+//        XCTAssertNoThrow(
+//            try server.addSSL(
+//                certFile: "./cert.pem",
+//                keyFile: "./key.pem",
+//                http: .v2
+//            )
+//        )
 
-        /*
-        // Webroot with static files (optional)
-        server.addWebroot(path: "/var/www/html")
-        // CORS (optional)
-        server.addCORS()
-        // SSL (optional)
-        XCTAssertNoThrow(
-            try server.addSSL(
-                certFile: "./cert.pem",
-                keyFile: "./key.pem",
-                http: .v2
-            )
-        )
-        */
         XCTAssertNoThrow(try server.start())
     }
 
