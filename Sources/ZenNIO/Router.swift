@@ -53,7 +53,8 @@ public class Router {
         for index in routes[method]!.indices {
             if url.last == "*" {
                 let count = url.count - (url.count == 2 ? 1 : 2)
-                if routes[method]![index].pattern.hasPrefix(url.prefix(count)) {
+                let uri = url.prefix(count).description
+                if routes[method]![index].pattern.hasPrefix(uri) { //&& routes[method]![index].pattern != uri {
                     routes[method]![index].filter = true
                 }
             } else if routes[method]![index].pattern == url {

@@ -68,6 +68,7 @@ server.addCORS()
 server.addAuthentication(handler: { (email, password) -> (Bool) in
     return email == "admin" && password = "admin"
 })
+server.addFilter(method: .GET, url: "/hello/*")
 
 // SSL (optional)
 try server.addSSL(certFile: "./cert.pem", keyFile: "./key.pem", http: .v2)

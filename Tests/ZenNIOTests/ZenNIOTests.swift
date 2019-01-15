@@ -43,7 +43,7 @@ final class ZenNIOTests: XCTestCase {
                 cache: 'no-cache',
                 body: json
             })
-            .then(res => res.status == 401 ? alert(res.statusText) : res.json())
+            .then(res => res.status == 401 ? alert(res.status + ' - ' + res.statusText) : res.json())
             .then(json => json ? alert(JSON.stringify(json)) : console.log('Invalid json'))
             .catch(error => console.log(error));
         }
@@ -172,17 +172,6 @@ final class ZenNIOTests: XCTestCase {
             res.completed()
         }
         
-        router.get("/hello.html") { req, res in
-            let context = ["name": "Gerardo"]
-            do {
-                try res.send(template: "hello.html", context: context)
-                res.completed()
-            } catch {
-                print(error)
-                res.completed(.internalServerError)
-            }
-        }
-        
         router.get("/hello/:name") { req, res in
             do {
                 guard let name = req.getParam(String.self, key: "name") else {
@@ -208,7 +197,7 @@ final class ZenNIOTests: XCTestCase {
         server.addAuthentication(handler: { (email, password) -> (Bool) in
             return email == password
         })
-        router.addFilter(method: .POST, url: "/*")
+        server.addFilter(method: .POST, url: "/*")
 
         /*
         // Webroot with static files (optional)
