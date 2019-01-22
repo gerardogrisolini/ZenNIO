@@ -28,19 +28,19 @@ public class HttpRequest {
         contentType = head.headers[HttpHeader.contentType.rawValue].first ?? ""
         self.parseHeadParameters()
     }
-
+    
     var authorization: String {
         return head.headers[HttpHeader.authorization.rawValue].first ?? ""
     }
-
+    
     var cookies: String {
         return head.headers[HttpHeader.cookie.rawValue].joined(separator: ",")
     }
-
+    
     var referer: String {
         return head.headers[HttpHeader.referer.rawValue].first ?? ""
     }
-
+    
     var isAuthenticated: Bool {
         if let token = session?.token {
             if authorization == "Bearer \(token.bearer)" {
@@ -56,11 +56,11 @@ public class HttpRequest {
     func setSession(_ session: Session) {
         self.session = session
     }
-
+    
     func addContent(bytes: [UInt8]) {
         body.append(contentsOf: bytes)
     }
-
+    
     public var bodyString: String? {
         return String(bytes: body, encoding: .utf8)
     }
@@ -71,12 +71,12 @@ public class HttpRequest {
         }
         return Data(body)
     }
-
+    
     func parseRequest() {
         parseBodyParameters()
         parseBodyMultipart()
     }
-
+    
     func setParam(key: String, value: Any) {
         params[key] = value
     }
@@ -94,15 +94,15 @@ public class HttpRequest {
         }
         return nil
     }
-
+    
     public func getParam(_ type: String.Type, key: String) -> String? {
         return params[key] as? String
     }
-
+    
     public func getParam(_ type: Data.Type, key: String) -> Data? {
         return params[key] as? Data
     }
-
+    
     fileprivate func parseHeadParameters() {
         guard  let end = url.firstIndex(of: "?")  else {
             return
@@ -111,7 +111,7 @@ public class HttpRequest {
         
         let start = head.uri.index(end, offsetBy: 1)
         let paramString = head.uri[start...].description
-    
+        
         let paramArray = paramString.split(separator: "&")
         paramArray.forEach { param in
             let values = param.split(separator: "=")
@@ -120,10 +120,10 @@ public class HttpRequest {
             }
         }
     }
-
+    
     fileprivate func parseBodyParameters() {
         if !contentType.hasPrefix("application/x-www-form-urlencoded") { return }
-
+        
         if let paramString = bodyString?.removingPercentEncoding?.replacingOccurrences(of: "+", with: " ") {
             let paramArray = paramString.split(separator: "&")
             paramArray.forEach { param in
@@ -153,7 +153,7 @@ public class HttpRequest {
                 result.append(i + 2)
                 count = 0
             }
-          }
+        }
         
         if result.count == 0 { return }
         
@@ -174,7 +174,7 @@ public class HttpRequest {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 name.removeLast()
                 
-                let start = end + 3
+                var start = end + 3
                 end = result[p + 1] - len - 4
                 
                 if parts.count > 2 {
@@ -183,6 +183,11 @@ public class HttpRequest {
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                     filename.removeLast()
                     
+                    if let index = body[start..<end].firstIndex(where: { byte -> Bool in
+                        return byte == "\n".utf8.first!
+                    }) {
+                        start = index + 3
+                    }
                     params[name] = filename
                     params[filename] = Data(body[start...end])
                 } else {
