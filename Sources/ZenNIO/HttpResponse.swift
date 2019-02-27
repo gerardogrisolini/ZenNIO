@@ -73,7 +73,7 @@ public class HttpResponse {
             send(html: html)
         }
         addHeader(.contentLength, value: "\(body?.count ?? 0)")
-        promise.succeed(result: self)
+        promise.succeed(self)
     }
 }
 

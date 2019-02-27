@@ -46,7 +46,6 @@ public class ZenNIO {
             certificateChain: [.file(certFile)],
             privateKey: .file(keyFile),
             cipherSuites: cipherSuites,
-            tls13CipherSuites: "",
             minimumTLSVersion: .tlsv11,
             maximumTLSVersion: .tlsv12,
             certificateVerification: .noHostnameVerification,
@@ -75,7 +74,7 @@ public class ZenNIO {
     }
     
     public func start() throws {
-        let threadPool = BlockingIOThreadPool(numberOfThreads: System.coreCount)
+        let threadPool = NIOThreadPool(numberOfThreads: System.coreCount)
         let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
         defer {
             try! threadPool.syncShutdownGracefully()
@@ -97,30 +96,30 @@ public class ZenNIO {
         if let sslContext = self.sslContext {
             if httpProtocol == .v1 {
                 _ = bootstrap.childChannelInitializer { channel in
-                    return channel.pipeline.add(handler: try! OpenSSLServerHandler(context: sslContext)).then {
-                        return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).then {
-                            channel.pipeline.add(handler: ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
+                    return channel.pipeline.addHandler(try! OpenSSLServerHandler(context: sslContext)).flatMap {
+                        return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
+                            channel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                         }
                     }
                 }
             } else {
+                // Set the handlers that are applied to the accepted Channels
                 _ = bootstrap.childChannelInitializer { channel in
-                    return channel.pipeline.add(handler: try! OpenSSLServerHandler(context: sslContext)).then {
-                        return channel.pipeline.add(handler: HTTP2Parser(mode: .server)).then {
-                            let multiplexer = HTTP2StreamMultiplexer { (channel, streamID) -> EventLoopFuture<Void> in
-                                return channel.pipeline.add(handler: HTTP2ToHTTP1ServerCodec(streamID: streamID)).then { () -> EventLoopFuture<Void> in
-                                    channel.pipeline.add(handler: ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath, http: .v2))
-                                }
+                    return channel.pipeline.addHandler(try! OpenSSLServerHandler(context: sslContext)).flatMap {
+                        return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
+                            return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
+                                streamChannel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath, http: .v2))
                             }
-                            return channel.pipeline.add(handler: multiplexer)
+                        }.flatMap { (_: HTTP2StreamMultiplexer) in
+                            return channel.pipeline.addHandler(ErrorHandler())
                         }
                     }
                 }
             }
         } else {
             _ = bootstrap.childChannelInitializer { channel in
-                return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).then {
-                    channel.pipeline.add(handler: ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
+                return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
+                    channel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                 }
             }
         }
@@ -157,4 +156,12 @@ func debugPrint(_ object: Any) {
     #endif
 }
 
+final class ErrorHandler: ChannelInboundHandler {
+    typealias InboundIn = Never
+    
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
+        print("Server received error: \(error)")
+        context.close(promise: nil)
+    }
+}
 
