@@ -193,6 +193,7 @@ final class ZenNIOTests: XCTestCase {
         }
 
         let server = ZenNIO(router: router)
+        
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> (Bool) in
             return email == password
@@ -205,8 +206,8 @@ final class ZenNIOTests: XCTestCase {
 //        // SSL (optional)
 //        XCTAssertNoThrow(
 //            try server.addSSL(
-//                certFile: "./cert.pem",
-//                keyFile: "./key.pem",
+//                certFile: "/Users/gerardo/Projects/ZenNIO/SSL/cert.pem",
+//                keyFile: "/Users/gerardo/Projects/ZenNIO/SSL/key.pem",
 //                http: .v2
 //            )
 //        )
