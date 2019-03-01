@@ -1,15 +1,40 @@
 //
-//  ServerHandler.swift
+//  HTTPHandler.swift
 //  ZenNIO
 //
-//  Created by admin on 20/12/2018.
+//  Created by Gerardo Grisolini on 28/02/2019.
 //
 
 import NIO
 import NIOHTTP1
-import NIOHTTP2
 
-final class ServerHandler: ChannelInboundHandler {
+private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
+    var head = HTTPResponseHead(version: request.version, status: status, headers: headers)
+    let connectionHeaders: [String] = head.headers[canonicalForm: "connection"].map { $0.lowercased() }
+    
+    if !connectionHeaders.contains("keep-alive") && !connectionHeaders.contains("close") {
+        // the user hasn't pre-set either 'keep-alive' or 'close', so we might need to add headers
+        
+        switch (request.isKeepAlive, request.version.major, request.version.minor) {
+        case (true, 1, 0):
+            // HTTP/1.0 and the request has 'Connection: keep-alive', we should mirror that
+            head.headers.add(name: "Connection", value: "keep-alive")
+        case (false, 1, let n) where n >= 1:
+            // HTTP/1.1 (or treated as such) and the request has 'Connection: close', we should mirror that
+            head.headers.add(name: "Connection", value: "close")
+        default:
+            // we should match the default or are dealing with some HTTP that we don't support, let's leave as is
+            ()
+        }
+    }
+    return head
+}
+
+final class HTTPHandler: ChannelInboundHandler {
+    private enum FileIOMethod {
+        case sendfile
+        case nonblockingFileIO
+    }
     public typealias InboundIn = HTTPServerRequestPart
     public typealias OutboundOut = HTTPServerResponsePart
     
@@ -35,25 +60,39 @@ final class ServerHandler: ChannelInboundHandler {
     }
     
     private var buffer: ByteBuffer! = nil
-    private var savedBodyBytes: [UInt8] = []
     private var keepAlive = false
     private var state = State.idle
     private let htdocsPath: String
     
+    private var savedBodyBytes: [UInt8] = []
     private var infoSavedRequestHead: HTTPRequestHead?
-    private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
-    private let fileIO: NonBlockingFileIO?
+    private var infoSavedBodyBytes: Int = 0
     
-    public init(
-        fileIO: NonBlockingFileIO?,
-        htdocsPath: String,
-        http: HttpProtocol = .v1
-    ) {
-        self.fileIO = fileIO
+    private var continuousCount: Int = 0
+    
+    private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
+    private var handlerFuture: EventLoopFuture<Void>?
+    private let fileIO: NonBlockingFileIO?
+    private let defaultResponse = "Hello World\r\n"
+    
+    public init(fileIO: NonBlockingFileIO?, htdocsPath: String) {
         self.htdocsPath = htdocsPath
+        self.fileIO = fileIO
     }
     
-    func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
+    private func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
+        self.state.responseComplete()
+        
+        let promise = self.keepAlive ? promise : (promise ?? context.eventLoop.makePromise())
+        if !self.keepAlive {
+            promise!.futureResult.whenComplete { (_: Result<Void, Error>) in context.close(promise: nil) }
+        }
+        self.handler = nil
+        
+        context.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
+    }
+    
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let reqPart = self.unwrapInboundIn(data)
         switch reqPart {
         case .head(let request):
@@ -69,19 +108,19 @@ final class ServerHandler: ChannelInboundHandler {
             savedBodyBytes.removeAll()
             let route = ZenNIO.getRoute(request: &request)
             if route != nil && route?.handler == nil {
-                fileRequest(ctx: ctx, request: infoSavedRequestHead!)
+                fileRequest(ctx: context, request: infoSavedRequestHead!)
                 return
             }
-
-            request.clientIp = ctx.channel.remoteAddress!.description
-            request.eventLoop = ctx.eventLoop
+            
+            request.clientIp = context.channel.remoteAddress!.description
+            request.eventLoop = context.eventLoop
             processRequest(request: request, route: route)
                 .whenSuccess { response in
-                    self.processResponse(ctx: ctx, response: response)
+                    self.processResponse(ctx: context, response: response)
             }
         }
     }
-
+    
     private func processCORS(_ request: HttpRequest, _ response: HttpResponse) -> Bool {
         response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
         response.headers.add(name: "Access-Control-Allow-Headers", value: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range")
@@ -109,24 +148,24 @@ final class ServerHandler: ChannelInboundHandler {
         request.setSession(session!)
         return filter && !request.isAuthenticated
     }
-
+    
     private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
         let promise = request.eventLoop.makePromise(of: HttpResponse.self)
-//        request.eventLoop.execute {
-            let response = HttpResponse(promise: promise)
-            if ZenNIO.cors, processCORS(request, response) {
-                response.completed(.noContent)
-            } else if let route = route {
-                if ZenNIO.session, processSession(request, response, route.filter) {
-                    response.completed(.unauthorized)
-                } else {
-                    request.parseRequest()
-                    route.handler!(request, response)
-                }
+        //        request.eventLoop.execute {
+        let response = HttpResponse(promise: promise)
+        if ZenNIO.cors, processCORS(request, response) {
+            response.completed(.noContent)
+        } else if let route = route {
+            if ZenNIO.session, processSession(request, response, route.filter) {
+                response.completed(.unauthorized)
             } else {
-                response.completed(.notFound)
+                request.parseRequest()
+                route.handler!(request, response)
             }
-//        }
+        } else {
+            response.completed(.notFound)
+        }
+        //        }
         return promise.futureResult
     }
     
@@ -174,14 +213,14 @@ final class ServerHandler: ChannelInboundHandler {
             var responseStarted = false
             let response = responseHead(request: request, fileRegion: region, contentType: path.contentType)
             return self.fileIO!.readChunked(fileRegion: region,
-                chunkSize: 32 * 1024,
-                allocator: ctx.channel.allocator,
-                eventLoop: ctx.eventLoop) { buffer in
-                    if !responseStarted {
-                        responseStarted = true
-                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                    }
-                    return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
+                                            chunkSize: 32 * 1024,
+                                            allocator: ctx.channel.allocator,
+                                            eventLoop: ctx.eventLoop) { buffer in
+                                                if !responseStarted {
+                                                    responseStarted = true
+                                                    ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                                                }
+                                                return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
                 }.flatMap { () -> EventLoopFuture<Void> in
                     let p = ctx.eventLoop.makePromise(of: Void.self)
                     self.completeResponse(ctx, trailers: nil, promise: p)
@@ -200,7 +239,7 @@ final class ServerHandler: ChannelInboundHandler {
                     }
                 }.whenComplete { (_: Result<Void, Error>) in
                     _ = try? file.close()
-                }
+            }
         }
         
         func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
@@ -226,26 +265,16 @@ final class ServerHandler: ChannelInboundHandler {
         }
         return head
     }
-    
-    fileprivate func completeResponse(_ ctx: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
-        self.state.responseComplete()
-        
-        let promise = self.keepAlive ? promise : (promise ?? ctx.eventLoop.makePromise())
-        if !self.keepAlive {
-            promise!.futureResult.whenComplete { (_: Result<Void, Error>) in
-                ctx.close(promise: nil)
-            }
-        }
-        self.handler = nil
-        
-        ctx.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
+
+    func channelReadComplete(context: ChannelHandlerContext) {
+        context.flush()
     }
     
-    func channelReadComplete(ctx: ChannelHandlerContext) {
-        ctx.flush()
+    func handlerAdded(context: ChannelHandlerContext) {
+        self.buffer = context.channel.allocator.buffer(capacity: 0)
     }
     
-    func userInboundEventTriggered(ctx: ChannelHandlerContext, event: Any) {
+    func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
         switch event {
         case let evt as ChannelEvent where evt == ChannelEvent.inputClosed:
             // The remote peer half-closed the channel. At this time, any
@@ -254,13 +283,12 @@ final class ServerHandler: ChannelInboundHandler {
             // will close the channel immediately.
             switch self.state {
             case .idle, .waitingForRequestBody:
-                ctx.close(promise: nil)
+                context.close(promise: nil)
             case .sendingResponse:
                 self.keepAlive = false
             }
         default:
-            ctx.fireUserInboundEventTriggered(event)
+            context.fireUserInboundEventTriggered(event)
         }
     }
 }
-
