@@ -13,28 +13,31 @@ final class ZenNIOTests: XCTestCase {
     func testSendEmail() {
         var response: Bool = false
         
+        let email = Email(
+            fromName: "ZenSMTP",
+            fromEmail: "info@grisolini.com",
+            toName: nil,
+            toEmail: "gerardo@grisolini.com",
+            subject: "Email test",
+            body: "<html><body><h1>Email attachment test</h1></body></html>",
+            attachments: [
+                Attachment(
+                    fileName: "logo.png",
+                    contentType: "image/png",
+                    data: AuthenticationProvider().logo
+                )
+            ]
+        )
+
         let config = ServerConfiguration(
             hostname: "pro.eu.turbo-smtp.com",
             port: 25,
             username: "g.grisolini@bluecityspa.com",
             password: "Sm0CPGnB"
         )
+        
         let smtp = ZenSMTP(config: config)
         
-        var attachments = [Attachment]()
-        let data = FileManager.default.contents(atPath: "/Users/gerardo/Downloads/logo.png")
-        attachments.append(Attachment(fileName: "logo.png", contentType: "image/png", data: data!))
-        
-        let email = Email(
-            fromName: "ZenSMTP",
-            fromEmail: "info@zensmtp.org",
-            toName: nil,
-            toEmail: "gerardo@grisolini.com",
-            subject: "Test",
-            body: "Email test",
-            attachments: attachments
-        )
-
         smtp.send(email: email) { error in
             if let error = error {
                 print("❌ : \(error)")

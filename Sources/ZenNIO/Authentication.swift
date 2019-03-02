@@ -31,7 +31,7 @@ class Authentication {
     func makeRoutesAndHandlers(router: Router) {
         
         router.get("/auth") { request, response in
-            response.addHeader(.link, value: "</assets/logo.png>; rel=preload; as=image, </assets/style.css>; rel=preload; as=style, </assets/scripts.js>; rel=preload; as=script")
+            //response.addHeader(.link, value: "</assets/logo.png>; rel=preload; as=image, </assets/style.css>; rel=preload; as=style, </assets/scripts.js>; rel=preload; as=script")
             //response.addHeader(.cache, value: "no-cache")
             //response.addHeader(.cache, value: "max-age=1440") // 1 days
             //response.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)

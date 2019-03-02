@@ -32,17 +32,15 @@ final class SMTPRequestEncoder: MessageToByteEncoder {
             out.writeString("To: \(formatMIME(emailAddress: email.toEmail, name: email.toName))\r\n")
             out.writeString("Date: \(dateFormatted)\r\n")
             out.writeString("Message-ID: <\(date.timeIntervalSince1970)\(email.fromEmail.drop { $0 != "@" })>\r\n")
+            out.writeString("Subject: \(email.subject)\r\n")
 
             if email.attachments.isEmpty {
-                out.writeString("Content-Type: text/html; charset=utf-8\r\n")
-                out.writeString("Subject: \(email.subject)\r\n\r\n")
-                out.writeString(email.body)
+                out.writeString("Content-Type: text/html; charset=utf-8\r\n\r\n")
+                out.writeString("\(email.body)</br>")
             } else {
                 let boundary = "boundary-\(UUID().uuidString)"
-                out.writeString("Content-Type: multipart/mixed;\r\n")
-                out.writeString("boundary: \(boundary)\r\n")
-                out.writeString("Subject: \(email.subject)\r\n\r\n")
-
+                out.writeString("Content-Type: multipart/mixed; boundary=\(boundary)\r\n\r\n")
+ 
                 out.writeString("--\(boundary)\r\n")
                 out.writeString("Content-Type: text/html; charset=utf-8\r\n")
                 out.writeString("Content-Transfer-Encoding: base64\r\n\r\n")
