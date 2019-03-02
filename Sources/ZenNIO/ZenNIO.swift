@@ -27,7 +27,7 @@ public class ZenNIO {
         host: String = "::1",
         port: Int = 8888,
         router: Router = Router()
-        ) {
+    ) {
         self.host = host
         self.port = port
         ZenNIO.router = router
@@ -98,7 +98,7 @@ public class ZenNIO {
                 _ = bootstrap.childChannelInitializer { channel in
                     return channel.pipeline.addHandler(try! OpenSSLServerHandler(context: sslContext)).flatMap {
                         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
-                            channel.pipeline.addHandler(HTTPHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
+                            channel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                         }
                     }
                 }
@@ -108,7 +108,7 @@ public class ZenNIO {
                     return channel.pipeline.addHandler(try! OpenSSLServerHandler(context: sslContext)).flatMap {
                         return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
                             return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                                streamChannel.pipeline.addHandler(HTTPHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
+                                streamChannel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                             }
                         }.flatMap { (_: HTTP2StreamMultiplexer) in
                             return channel.pipeline.addHandler(ErrorHandler())
@@ -119,7 +119,7 @@ public class ZenNIO {
         } else {
             _ = bootstrap.childChannelInitializer { channel in
                 return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
-                    channel.pipeline.addHandler(HTTPHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
+                    channel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                 }
             }
         }

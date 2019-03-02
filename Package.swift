@@ -8,7 +8,10 @@ let package = Package(
     products: [
         .library(
             name: "ZenNIO",
-            targets: ["ZenNIO"])
+            targets: ["ZenNIO"]),
+        .library(
+            name: "ZenSMTP",
+            targets: ["ZenSMTP"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
@@ -20,8 +23,11 @@ let package = Package(
         .target(
             name: "ZenNIO",
             dependencies: ["NIO", "NIOConcurrencyHelpers", "NIOOpenSSL", "NIOHTTP1", "NIOHTTP2", "Stencil"]),
+        .target(
+            name: "ZenSMTP",
+            dependencies: ["NIO", "NIOFoundationCompat"]),
         .testTarget(
             name: "ZenNIOTests",
-            dependencies: ["ZenNIO"])
+            dependencies: ["ZenNIO", "ZenSMTP"])
     ]
 )

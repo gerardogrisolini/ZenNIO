@@ -1,5 +1,6 @@
 import XCTest
 @testable import ZenNIO
+@testable import ZenSMTP
 
 final class ZenNIOTests: XCTestCase {
 
@@ -9,6 +10,41 @@ final class ZenNIOTests: XCTestCase {
         var email: String = ""
     }
 
+    func testSendEmail() {
+        var response: Bool = false
+        
+        let config = ServerConfiguration(
+            hostname: "pro.eu.turbo-smtp.com",
+            port: 25,
+            username: "g.grisolini@bluecityspa.com",
+            password: "Sm0CPGnB"
+        )
+        let smtp = ZenSMTP(config: config)
+        let email = Email(
+            senderName: nil,
+            senderEmail: "info@grisolini.com",
+            recipientName: nil,
+            recipientEmail: "gerardo@grisolini.com",
+            subject: "Test",
+            body: "Email test")
+        smtp.send(email: email) { error in
+            if let error = error {
+                print("❌ : \(error)")
+            } else {
+                response = true
+                print("✅")
+            }
+        }
+
+        let exp = expectation(description: "Test send email for 10 seconds")
+        let result = XCTWaiter.wait(for: [exp], timeout: 10.0)
+        if result == XCTWaiter.Result.timedOut {
+            XCTAssertTrue(response)
+        } else {
+            XCTFail("Test interrupted")
+        }
+    }
+    
     func testExample() {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
