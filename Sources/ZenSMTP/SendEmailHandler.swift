@@ -72,10 +72,10 @@ final class SendEmailHandler: ChannelInboundHandler {
             self.send(context: context, command: .authPassword(self.serverConfiguration.password))
             self.currentlyWaitingFor = .okAfterPassword
         case .okAfterPassword:
-            self.send(context: context, command: .mailFrom(self.email.senderEmail))
+            self.send(context: context, command: .mailFrom(self.email.fromEmail))
             self.currentlyWaitingFor = .okAfterMailFrom
         case .okAfterMailFrom:
-            self.send(context: context, command: .recipient(self.email.recipientEmail))
+            self.send(context: context, command: .recipient(self.email.toEmail))
             self.currentlyWaitingFor = .okAfterRecipient
         case .okAfterRecipient:
             self.send(context: context, command: .data)

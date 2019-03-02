@@ -28,12 +28,38 @@ final class SMTPRequestEncoder: MessageToByteEncoder {
             dateFormatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss Z"
             let dateFormatted = dateFormatter.string(from: date)
 
-            out.writeString("From: \(formatMIME(emailAddress: email.senderEmail, name: email.senderName))\r\n")
-            out.writeString("To: \(formatMIME(emailAddress: email.recipientEmail, name: email.recipientName))\r\n")
+            out.writeString("From: \(formatMIME(emailAddress: email.fromEmail, name: email.fromName))\r\n")
+            out.writeString("To: \(formatMIME(emailAddress: email.toEmail, name: email.toName))\r\n")
             out.writeString("Date: \(dateFormatted)\r\n")
-            out.writeString("Message-ID: <\(date.timeIntervalSince1970)\(email.senderEmail.drop { $0 != "@" })>\r\n")
-            out.writeString("Subject: \(email.subject)\r\n\r\n")
-            out.writeString(email.body)
+            out.writeString("Message-ID: <\(date.timeIntervalSince1970)\(email.fromEmail.drop { $0 != "@" })>\r\n")
+
+            if email.attachments.isEmpty {
+                out.writeString("Content-Type: text/html; charset=utf-8\r\n")
+                out.writeString("Subject: \(email.subject)\r\n\r\n")
+                out.writeString(email.body)
+            } else {
+                let boundary = "boundary-\(UUID().uuidString)"
+                out.writeString("Content-Type: multipart/mixed;\r\n")
+                out.writeString("boundary: \(boundary)\r\n")
+                out.writeString("Subject: \(email.subject)\r\n\r\n")
+
+                out.writeString("--\(boundary)\r\n")
+                out.writeString("Content-Type: text/html; charset=utf-8\r\n")
+                out.writeString("Content-Transfer-Encoding: base64\r\n\r\n")
+                out.writeString(email.body.data(using: .utf8)!.base64EncodedString())
+                out.writeString("\r\n")
+
+                for attachment in email.attachments {
+                    out.writeString("--\(boundary)\r\n")
+                    out.writeString("Content-Type: \(attachment.contentType); name=\(attachment.fileName)\r\n")
+                    out.writeString("Content-Disposition: attachment; filename=\(attachment.fileName)\r\n")
+                    out.writeString("Content-Transfer-Encoding: base64\r\n")
+                    out.writeString("X-Attachment-Id: \(Int.random(in: 1000...99999))\r\n\r\n")
+                    out.writeString(attachment.data.base64EncodedString())
+                    out.writeString("\r\n")
+                }
+            }
+            
             out.writeString("\r\n.")
         case .quit:
             out.writeString("QUIT")

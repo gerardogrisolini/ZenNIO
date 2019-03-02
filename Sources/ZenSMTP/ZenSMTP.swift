@@ -17,21 +17,19 @@ public class ZenSMTP {
     }
     
     public func send(email: Email, handler: @escaping (Error?) -> Void) {
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-//        defer {
-//            try! group.syncShutdownGracefully()
-//        }
-        let commHandler: (String) -> Void = { str in
+
+        let printHandler: (String) -> Void = { str in
             print(str)
         }
+        
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         let emailSentPromise: EventLoopPromise<Void> = group.next().makePromise()
         let bootstrap = ClientBootstrap(group: group)
             // Enable SO_REUSEADDR.
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .channelInitializer { channel in
                 channel.pipeline.addHandlers([
-                    PrintEverythingHandler(handler: commHandler),
-                    //LineBasedFrameDecoder(),
+                    PrintEverythingHandler(handler: printHandler),
                     SMTPResponseDecoder(),
                     SMTPRequestEncoder(),
                     SendEmailHandler(configuration: ZenSMTP.config,
@@ -43,15 +41,19 @@ public class ZenSMTP {
         
         bootstrap.cascadeFailure(to: emailSentPromise)
         
-        emailSentPromise.futureResult.map {
+        func completed(_ error: Error?) {
             bootstrap.whenSuccess { $0.close(promise: nil) }
             handler(nil)
             try! group.syncShutdownGracefully()
-        }.whenFailure { error in
-            bootstrap.whenSuccess { $0.close(promise: nil) }
-            handler(error)
-            try! group.syncShutdownGracefully()
         }
+
+        emailSentPromise.futureResult
+            .map { _ in
+                completed(nil)
+             }
+            .whenFailure { error in
+                completed(error)
+            }
     }
 }
 

@@ -5,6 +5,7 @@
 //  Created by admin on 01/03/2019.
 //
 
+import Foundation
 
 enum SMTPRequest {
     case sayHello(serverName: String)
@@ -30,14 +31,19 @@ public struct ServerConfiguration {
     var password: String
 }
 
+public struct Attachment {
+    var fileName: String
+    var contentType: String
+    var data: Data
+}
+
 public struct Email {
-    var senderName: String?
-    var senderEmail: String
-    
-    var recipientName: String?
-    var recipientEmail: String
+    var fromName: String?
+    var fromEmail: String
+    var toName: String?
+    var toEmail: String
     
     var subject: String
-    
     var body: String
+    var attachments: [Attachment]
 }

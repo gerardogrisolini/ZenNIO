@@ -20,13 +20,21 @@ final class ZenNIOTests: XCTestCase {
             password: "Sm0CPGnB"
         )
         let smtp = ZenSMTP(config: config)
+        
+        var attachments = [Attachment]()
+        let data = FileManager.default.contents(atPath: "/Users/gerardo/Downloads/logo.png")
+        attachments.append(Attachment(fileName: "logo.png", contentType: "image/png", data: data!))
+        
         let email = Email(
-            senderName: nil,
-            senderEmail: "info@grisolini.com",
-            recipientName: nil,
-            recipientEmail: "gerardo@grisolini.com",
+            fromName: "ZenSMTP",
+            fromEmail: "info@zensmtp.org",
+            toName: nil,
+            toEmail: "gerardo@grisolini.com",
             subject: "Test",
-            body: "Email test")
+            body: "Email test",
+            attachments: attachments
+        )
+
         smtp.send(email: email) { error in
             if let error = error {
                 print("❌ : \(error)")
