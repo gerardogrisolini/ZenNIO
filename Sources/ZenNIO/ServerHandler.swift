@@ -147,7 +147,7 @@ final class ServerHandler: ChannelInboundHandler {
     
     private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
         let promise = request.eventLoop.makePromise(of: HttpResponse.self)
-        //        request.eventLoop.execute {
+//        request.eventLoop.execute {
         let response = HttpResponse(promise: promise)
         if ZenNIO.cors, processCORS(request, response) {
             response.completed(.noContent)
@@ -161,7 +161,7 @@ final class ServerHandler: ChannelInboundHandler {
         } else {
             response.completed(.notFound)
         }
-        //        }
+//        }
         return promise.futureResult
     }
     
@@ -209,14 +209,14 @@ final class ServerHandler: ChannelInboundHandler {
             var responseStarted = false
             let response = responseHead(request: request, fileRegion: region, contentType: path.contentType)
             return self.fileIO!.readChunked(fileRegion: region,
-                                            chunkSize: 32 * 1024,
-                                            allocator: ctx.channel.allocator,
-                                            eventLoop: ctx.eventLoop) { buffer in
-                                                if !responseStarted {
-                                                    responseStarted = true
-                                                    ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                                                }
-                                                return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
+                chunkSize: 32 * 1024,
+                allocator: ctx.channel.allocator,
+                eventLoop: ctx.eventLoop) { buffer in
+                    if !responseStarted {
+                        responseStarted = true
+                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                    }
+                    return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
                 }.flatMap { () -> EventLoopFuture<Void> in
                     let p = ctx.eventLoop.makePromise(of: Void.self)
                     self.completeResponse(ctx, trailers: nil, promise: p)

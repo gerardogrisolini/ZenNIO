@@ -1,19 +1,27 @@
 //
-//  ZenNIOSMTP.swift
+//  ZenSMTP.swift
 //  ZenSMTP
 //
 //  Created by admin on 01/03/2019.
 //
 
 import NIO
-import Network
+import NIOSSL
 
 public class ZenSMTP {
 
     static var config: ServerConfiguration!
-    
+    private var clientHandler: NIOSSLClientHandler? = nil
+
     init(config: ServerConfiguration) {
         ZenSMTP.config = config
+        if let cert = config.cert, let key = config.key {
+            let configuration = TLSConfiguration.forServer(
+                certificateChain: [cert],
+                privateKey: key)
+            let sslContext = try! NIOSSLContext(configuration: configuration)
+            clientHandler = try! NIOSSLClientHandler(context: sslContext)
+        }
     }
     
     public func send(email: Email, handler: @escaping (Error?) -> Void) {
@@ -28,14 +36,21 @@ public class ZenSMTP {
             // Enable SO_REUSEADDR.
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .channelInitializer { channel in
-                channel.pipeline.addHandlers([
+                let handlers: [ChannelHandler] = [
                     PrintEverythingHandler(handler: printHandler),
                     SMTPResponseDecoder(),
                     SMTPRequestEncoder(),
                     SendEmailHandler(configuration: ZenSMTP.config,
                                      email: email,
                                      allDonePromise: emailSentPromise)
-                ])
+                ]
+                if let clientHandler = self.clientHandler {
+                    return channel.pipeline.addHandler(clientHandler).flatMap {
+                        channel.pipeline.addHandlers(handlers)
+                    }
+                } else {
+                    return channel.pipeline.addHandlers(handlers)
+                }
             }
             .connect(host: ZenSMTP.config.hostname, port: ZenSMTP.config.port)
         
@@ -56,4 +71,3 @@ public class ZenSMTP {
             }
     }
 }
-

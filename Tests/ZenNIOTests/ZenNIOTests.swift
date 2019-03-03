@@ -33,7 +33,9 @@ final class ZenNIOTests: XCTestCase {
             hostname: "pro.eu.turbo-smtp.com",
             port: 25,
             username: "g.grisolini@bluecityspa.com",
-            password: "Sm0CPGnB"
+            password: "Sm0CPGnB",
+            cert: nil, //.file("/Users/gerardo/Projects/ZenNIO/SSL/cert.pem"),
+            key: nil //.file("/Users/gerardo/Projects/ZenNIO/SSL/key.pem")
         )
         
         let smtp = ZenSMTP(config: config)
@@ -90,7 +92,7 @@ final class ZenNIOTests: XCTestCase {
                 cache: 'no-cache',
                 body: json
             })
-            .then(res => res.status == 401 ? alert(res.status + ' - ' + res.statusText) : res.json())
+            .then(res => res.status == 401 ? alert(res.status + ' - Unauthorized') : res.json())
             .then(json => json ? alert(JSON.stringify(json)) : console.log('Invalid json'))
             .catch(error => console.log(error));
         }
@@ -251,13 +253,13 @@ final class ZenNIOTests: XCTestCase {
 //        // CORS (optional)
 //        server.addCORS()
 //        // SSL (optional)
-//        XCTAssertNoThrow(
-//            try server.addSSL(
-//                certFile: "/Users/gerardo/Projects/ZenNIO/SSL/cert.pem",
-//                keyFile: "/Users/gerardo/Projects/ZenNIO/SSL/key.pem",
-//                http: .v2
-//            )
-//        )
+        XCTAssertNoThrow(
+            try server.addSSL(
+                certFile: "/Users/gerardo/Projects/ZenNIO/SSL/cert.pem",
+                keyFile: "/Users/gerardo/Projects/ZenNIO/SSL/key.pem",
+                http: .v2
+            )
+        )
 
         XCTAssertNoThrow(try server.start())
     }

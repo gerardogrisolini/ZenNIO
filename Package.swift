@@ -22,10 +22,10 @@ let package = Package(
     targets: [
         .target(
             name: "ZenNIO",
-            dependencies: ["NIO", "NIOConcurrencyHelpers", "NIOOpenSSL", "NIOHTTP1", "NIOHTTP2", "Stencil"]),
+            dependencies: ["NIO", "NIOConcurrencyHelpers", "NIOSSL", "NIOHTTP1", "NIOHTTP2", "Stencil"]),
         .target(
             name: "ZenSMTP",
-            dependencies: ["NIO", "NIOFoundationCompat"]),
+            dependencies: ["NIO", "NIOFoundationCompat", "NIOSSL"]),
         .testTarget(
             name: "ZenNIOTests",
             dependencies: ["ZenNIO", "ZenSMTP"])

@@ -8,11 +8,11 @@
 import NIO
 import NIOHTTP1
 import NIOHTTP2
-import NIOOpenSSL
+import NIOSSL
 
 public class ZenNIO {
     
-    private var sslContext: SSLContext? = nil
+    private var sslContext: NIOSSLContext? = nil
     private var httpProtocol: HttpProtocol = .v1
     
     public let port: Int
@@ -52,7 +52,7 @@ public class ZenNIO {
             trustRoots: .default,
             applicationProtocols: [httpProtocol.rawValue]
         )
-        sslContext = try! SSLContext(configuration: config)
+        sslContext = try! NIOSSLContext(configuration: config)
     }
     
     public func addCORS() {
@@ -96,8 +96,8 @@ public class ZenNIO {
         if let sslContext = self.sslContext {
             if httpProtocol == .v1 {
                 _ = bootstrap.childChannelInitializer { channel in
-                    return channel.pipeline.addHandler(try! OpenSSLServerHandler(context: sslContext)).flatMap {
-                        return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
+                    return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext)).flatMap {
+                        channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
                             channel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                         }
                     }
@@ -105,13 +105,13 @@ public class ZenNIO {
             } else {
                 // Set the handlers that are applied to the accepted Channels
                 _ = bootstrap.childChannelInitializer { channel in
-                    return channel.pipeline.addHandler(try! OpenSSLServerHandler(context: sslContext)).flatMap {
-                        return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
-                            return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
+                    return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext)).flatMap {
+                        channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
+                            streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
                                 streamChannel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                             }
                         }.flatMap { (_: HTTP2StreamMultiplexer) in
-                            return channel.pipeline.addHandler(ErrorHandler())
+                            channel.pipeline.addHandler(ErrorHandler())
                         }
                     }
                 }

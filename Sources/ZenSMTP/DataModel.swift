@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NIOSSL
 
 enum SMTPRequest {
     case sayHello(serverName: String)
@@ -29,6 +30,8 @@ public struct ServerConfiguration {
     var port: Int
     var username: String
     var password: String
+    var cert: NIOSSLCertificateSource?
+    var key: NIOSSLPrivateKeySource?
 }
 
 public struct Attachment {
