@@ -247,19 +247,23 @@ final class ZenNIOTests: XCTestCase {
         server.addAuthentication(handler: { (email, password) -> (Bool) in
             return email == password
         })
-        server.addFilter(method: .POST, url: "/*")
-//        // Webroot with static files (optional)
-//        server.addWebroot(path: "/var/www/html")
-//        // CORS (optional)
-//        server.addCORS()
-//        // SSL (optional)
-        XCTAssertNoThrow(
-            try server.addSSL(
-                certFile: "/Users/gerardo/Projects/ZenNIO/SSL/cert.pem",
-                keyFile: "/Users/gerardo/Projects/ZenNIO/SSL/key.pem",
-                http: .v2
-            )
-        )
+        server.addFilter(method: .POST, url: "/api/client")
+        server.addFilter(method: .POST, url: "/client")
+
+        // Webroot with static files (optional)
+        //server.addWebroot(path: "/var/www/html")
+        
+        // CORS (optional)
+        //server.addCORS()
+        
+        // SSL (optional)
+//        XCTAssertNoThrow(
+//            try server.addSSL(
+//                certFile: "/Users/gerardo/Projects/ZenNIO/SSL/cert.pem",
+//                keyFile: "/Users/gerardo/Projects/ZenNIO/SSL/key.pem",
+//                http: .v2
+//            )
+//        )
 
         XCTAssertNoThrow(try server.start())
     }
