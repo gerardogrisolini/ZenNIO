@@ -12,6 +12,9 @@ let package = Package(
         .library(
             name: "ZenSMTP",
             targets: ["ZenSMTP"]),
+        .library(
+            name: "ZenUI",
+            targets: ["ZenUI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
@@ -26,6 +29,9 @@ let package = Package(
         .target(
             name: "ZenSMTP",
             dependencies: ["NIO", "NIOFoundationCompat", "NIOSSL"]),
+        .target(
+            name: "ZenUI",
+            dependencies: ["ZenNIO", "Stencil"]),
         .testTarget(
             name: "ZenNIOTests",
             dependencies: ["ZenNIO", "ZenSMTP"])

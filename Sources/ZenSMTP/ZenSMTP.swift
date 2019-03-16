@@ -20,7 +20,7 @@ public class ZenSMTP {
                 certificateChain: [cert],
                 privateKey: key)
             let sslContext = try! NIOSSLContext(configuration: configuration)
-            clientHandler = try! NIOSSLClientHandler(context: sslContext)
+            clientHandler = try! NIOSSLClientHandler(context: sslContext, serverHostname: config.hostname)
         }
     }
     

@@ -92,11 +92,13 @@ public class ZenNIO {
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         
+        
         // Set the handlers that are applied to the accepted Channels
         if let sslContext = self.sslContext {
+            let sslHandler = try! NIOSSLServerHandler(context: sslContext)
             if httpProtocol == .v1 {
                 _ = bootstrap.childChannelInitializer { channel in
-                    return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext)).flatMap {
+                    return channel.pipeline.addHandler(sslHandler).flatMap {
                         channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
                             channel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                         }
@@ -105,7 +107,7 @@ public class ZenNIO {
             } else {
                 // Set the handlers that are applied to the accepted Channels
                 _ = bootstrap.childChannelInitializer { channel in
-                    return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext)).flatMap {
+                    return channel.pipeline.addHandler(sslHandler).flatMap {
                         channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
                             streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
                                 streamChannel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))

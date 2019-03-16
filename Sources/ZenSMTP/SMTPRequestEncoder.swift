@@ -9,10 +9,11 @@ import NIO
 import NIOFoundationCompat
 import Foundation
 
-final class SMTPRequestEncoder: MessageToByteEncoder {
+final class SMTPRequestEncoder: MessageToByteEncoder, ChannelHandler {
+
     typealias OutboundIn = SMTPRequest
     
-    func encode(context: ChannelHandlerContext, data: SMTPRequest, out: inout ByteBuffer) throws {
+    func encode(data: SMTPRequest, out: inout ByteBuffer) throws {
         switch data {
         case .sayHello(serverName: let server):
             out.writeString("HELO \(server)")
