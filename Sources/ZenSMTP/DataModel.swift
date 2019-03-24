@@ -26,18 +26,40 @@ enum SMTPResponse {
 }
 
 public struct ServerConfiguration {
-    public var hostname: String
-    public var port: Int
-    public var username: String
-    public var password: String
-    public var cert: NIOSSLCertificateSource?
-    public var key: NIOSSLPrivateKeySource?
+    var hostname: String
+    var port: Int
+    var username: String
+    var password: String
+    var cert: NIOSSLCertificateSource?
+    var key: NIOSSLPrivateKeySource?
+    
+    init(hostname: String,
+         port: Int,
+         username: String,
+         password: String,
+         cert: NIOSSLCertificateSource?,
+         key: NIOSSLPrivateKeySource?) {
+        self.hostname = hostname
+        self.port = port
+        self.username = username
+        self.password = password
+        self.cert = cert
+        self.key = key
+    }
 }
 
 public struct Attachment {
-    public var fileName: String
-    public var contentType: String
-    public var data: Data
+    var fileName: String
+    var contentType: String
+    var data: Data
+    
+    init(fileName: String,
+         contentType: String,
+         data: Data) {
+        self.fileName = fileName
+        self.contentType = contentType
+        self.data = data
+    }
 }
 
 public struct Email {
