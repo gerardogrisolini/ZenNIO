@@ -41,7 +41,7 @@ public class HttpRequest {
         return head.headers[HttpHeader.referer.rawValue].first ?? ""
     }
     
-    var isAuthenticated: Bool {
+    public var isAuthenticated: Bool {
         if let token = session?.token {
             if authorization == "Bearer \(token.bearer)" {
                 return true

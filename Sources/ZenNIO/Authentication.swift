@@ -50,11 +50,11 @@ class Authentication {
         
         router.post("/api/login") { request, response in
             do {
-                guard request.body.count > 0 else {
+                guard let data = request.bodyData else {
                     throw HttpError.badRequest
                 }
                 
-                let account = try JSONDecoder().decode(Account.self, from: Data(request.body))
+                let account = try JSONDecoder().decode(Account.self, from: data)
                 if self.handler(account.email, account.password) {
                     let data = Date().timeIntervalSinceNow.description.data(using: .utf8)!
                     let token = Token(bearer: data.base64EncodedString())

@@ -15,6 +15,7 @@ public class ZenNIO {
     private var sslContext: NIOSSLContext? = nil
     private var httpProtocol: HttpProtocol = .v1
     
+    public let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     public let port: Int
     public let host: String
     public var htdocsPath: String = ""
@@ -75,10 +76,9 @@ public class ZenNIO {
     
     public func start() throws {
         let threadPool = NIOThreadPool(numberOfThreads: System.coreCount)
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
         defer {
             try! threadPool.syncShutdownGracefully()
-            try! group.syncShutdownGracefully()
+            try! eventLoopGroup.syncShutdownGracefully()
         }
         
         var fileIO: NonBlockingFileIO? = nil
@@ -87,7 +87,7 @@ public class ZenNIO {
             fileIO = NonBlockingFileIO(threadPool: threadPool)
         }
         
-        let bootstrap = ServerBootstrap(group: group)
+        let bootstrap = ServerBootstrap(group: eventLoopGroup)
             // Specify backlog and enable SO_REUSEADDR for the server itself
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)

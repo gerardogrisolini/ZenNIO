@@ -12,11 +12,6 @@ final class SendEmailHandler: ChannelInboundHandler {
     typealias OutboundIn = Email
     typealias OutboundOut = SMTPRequest
     
-    enum SmtpError: Error {
-        case sendingEmail(reason: String)
-        case generic
-    }
-    
     enum Expect {
         case initialMessageFromServer
         case okForOurHello

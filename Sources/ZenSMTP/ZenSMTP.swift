@@ -8,12 +8,17 @@
 import NIO
 import NIOSSL
 
+public enum SmtpError: Error {
+    case sendingEmail(reason: String)
+    case generic
+}
+
 public class ZenSMTP {
 
     static var config: ServerConfiguration!
     private var clientHandler: NIOSSLClientHandler? = nil
 
-    init(config: ServerConfiguration) {
+    public init(config: ServerConfiguration) {
         ZenSMTP.config = config
         if let cert = config.cert, let key = config.key {
             let configuration = TLSConfiguration.forServer(
@@ -24,7 +29,7 @@ public class ZenSMTP {
         }
     }
     
-    public func send(email: Email, handler: @escaping (Error?) -> Void) {
+    public func send(email: Email, handler: @escaping (String?) -> ()) {
 
         let printHandler: (String) -> Void = { str in
             print(str)
@@ -32,6 +37,7 @@ public class ZenSMTP {
         
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         let emailSentPromise: EventLoopPromise<Void> = group.next().makePromise()
+        
         let bootstrap = ClientBootstrap(group: group)
             // Enable SO_REUSEADDR.
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
@@ -56,7 +62,7 @@ public class ZenSMTP {
         
         bootstrap.cascadeFailure(to: emailSentPromise)
         
-        func completed(_ error: Error?) {
+        func completed(_ error: String?) {
             bootstrap.whenSuccess { $0.close(promise: nil) }
             handler(nil)
             try! group.syncShutdownGracefully()
@@ -67,7 +73,7 @@ public class ZenSMTP {
                 completed(nil)
              }
             .whenFailure { error in
-                completed(error)
+                completed(error.localizedDescription)
             }
     }
 }

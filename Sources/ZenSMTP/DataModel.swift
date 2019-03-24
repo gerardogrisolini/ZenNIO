@@ -26,14 +26,14 @@ enum SMTPResponse {
 }
 
 public struct ServerConfiguration {
-    var hostname: String
-    var port: Int
-    var username: String
-    var password: String
-    var cert: NIOSSLCertificateSource?
-    var key: NIOSSLPrivateKeySource?
+    public var hostname: String
+    public var port: Int
+    public var username: String
+    public var password: String
+    public var cert: NIOSSLCertificateSource?
+    public var key: NIOSSLPrivateKeySource?
     
-    init(hostname: String,
+    public init(hostname: String,
          port: Int,
          username: String,
          password: String,
@@ -49,11 +49,11 @@ public struct ServerConfiguration {
 }
 
 public struct Attachment {
-    var fileName: String
-    var contentType: String
-    var data: Data
+    public var fileName: String
+    public var contentType: String
+    public var data: Data
     
-    init(fileName: String,
+    public init(fileName: String,
          contentType: String,
          data: Data) {
         self.fileName = fileName
@@ -63,12 +63,30 @@ public struct Attachment {
 }
 
 public struct Email {
-    var fromName: String?
-    var fromEmail: String
-    var toName: String?
-    var toEmail: String
+    public var fromName: String?
+    public var fromEmail: String
+    public var toName: String?
+    public var toEmail: String
     
-    var subject: String
-    var body: String
-    var attachments: [Attachment]
+    public var subject: String
+    public var body: String
+    public var attachments: [Attachment]
+    
+    public init(
+        fromName: String? = nil,
+        fromEmail: String,
+        toName: String? = nil,
+        toEmail: String,
+        subject: String,
+        body: String,
+        attachments: [Attachment]
+    ) {
+        self.fromName = fromName
+        self.fromEmail = fromEmail
+        self.toName = toName
+        self.toEmail = toEmail
+        self.subject = subject
+        self.body = body
+        self.attachments = attachments
+    }
 }
