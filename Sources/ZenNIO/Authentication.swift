@@ -15,6 +15,7 @@ public struct Account : Codable {
 }
 
 public struct Token : Codable {
+    public var basic: String = ""
     public var bearer: String = ""
 }
 
