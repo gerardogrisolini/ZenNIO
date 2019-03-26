@@ -65,8 +65,8 @@ public class ZenNIO {
         Authentication(handler: handler).makeRoutesAndHandlers(router: ZenNIO.router)
     }
 
-    public func addFilter(method: HTTPMethod, url: String) {
-        ZenNIO.router.addFilter(method: method, url: url)
+    public func setFilter(_ value: Bool, methods: [HTTPMethod], url: String) {
+        ZenNIO.router.setFilter(value, methods: methods, url: url)
     }
 
     static func getRoute(request: inout HttpRequest) -> Route? {

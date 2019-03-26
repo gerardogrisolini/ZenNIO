@@ -1,6 +1,5 @@
 import XCTest
 @testable import ZenNIO
-@testable import ZenSMTP
 
 final class ZenNIOTests: XCTestCase {
 
@@ -10,54 +9,6 @@ final class ZenNIOTests: XCTestCase {
         var email: String = ""
     }
 
-    func testSendEmail() {
-        var response: Bool = false
-        
-        let email = Email(
-            fromName: "ZenSMTP",
-            fromEmail: "info@grisolini.com",
-            toName: nil,
-            toEmail: "gerardo@grisolini.com",
-            subject: "Email test",
-            body: "<html><body><h1>Email attachment test</h1></body></html>",
-            attachments: [
-                Attachment(
-                    fileName: "logo.png",
-                    contentType: "image/png",
-                    data: AuthenticationProvider().logo
-                )
-            ]
-        )
-
-        let config = ServerConfiguration(
-            hostname: "pro.eu.turbo-smtp.com",
-            port: 25,
-            username: "g.grisolini@bluecityspa.com",
-            password: "Sm0CPGnB",
-            cert: nil, //.file("/Users/gerardo/Projects/ZenNIO/SSL/cert.pem"),
-            key: nil //.file("/Users/gerardo/Projects/ZenNIO/SSL/key.pem")
-        )
-        
-        let smtp = ZenSMTP(config: config)
-        
-        smtp.send(email: email) { error in
-            if let error = error {
-                print("❌ : \(error)")
-            } else {
-                response = true
-                print("✅")
-            }
-        }
-
-        let exp = expectation(description: "Test send email for 10 seconds")
-        let result = XCTWaiter.wait(for: [exp], timeout: 10.0)
-        if result == XCTWaiter.Result.timedOut {
-            XCTAssertTrue(response)
-        } else {
-            XCTFail("Test interrupted")
-        }
-    }
-    
     func testStartServer() {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
@@ -247,8 +198,8 @@ final class ZenNIOTests: XCTestCase {
         server.addAuthentication(handler: { (email, password) -> (Bool) in
             return email == password
         })
-        server.addFilter(method: .POST, url: "/api/client")
-        server.addFilter(method: .POST, url: "/client")
+        server.setFilter(true, methods: [.POST], url: "/api/client")
+        server.setFilter(true, methods: [.POST], url: "/client")
 
         // Webroot with static files (optional)
         //server.addWebroot(path: "/var/www/html")
@@ -269,7 +220,6 @@ final class ZenNIOTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testSendEmail", testSendEmail),
         ("testStartServer", testStartServer),
     ]
 }
