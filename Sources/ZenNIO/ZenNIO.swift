@@ -15,7 +15,6 @@ public class ZenNIO {
     private var sslContext: NIOSSLContext? = nil
     private var httpProtocol: HttpProtocol = .v1
     
-    public let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     public let port: Int
     public let host: String
     public var htdocsPath: String = ""
@@ -75,6 +74,7 @@ public class ZenNIO {
     }
     
     public func start() throws {
+        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
         let threadPool = NIOThreadPool(numberOfThreads: System.coreCount)
         defer {
             try! threadPool.syncShutdownGracefully()
