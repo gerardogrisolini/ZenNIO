@@ -17,6 +17,14 @@ public struct Account : Codable {
 public struct Token : Codable {
     public var basic: String = ""
     public var bearer: String = ""
+    
+    public init(basic: String) {
+        self.basic = basic
+    }
+
+    public init(bearer: String) {
+        self.bearer = bearer
+    }
 }
 
 class Authentication {
