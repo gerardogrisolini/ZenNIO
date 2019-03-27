@@ -18,6 +18,8 @@ public class ZenNIO {
     public let port: Int
     public let host: String
     public var htdocsPath: String = ""
+    public let eventLoopGroup: EventLoopGroup
+    private let threadPool: NIOThreadPool
     static var router = Router()
     static var sessions = HttpSession()
     static var cors = false
@@ -26,8 +28,11 @@ public class ZenNIO {
     public init(
         host: String = "::1",
         port: Int = 8888,
-        router: Router = Router()
+        router: Router = Router(),
+        numberOfThreads: Int = System.coreCount
     ) {
+        eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numberOfThreads)
+        threadPool = NIOThreadPool(numberOfThreads: numberOfThreads)
         self.host = host
         self.port = port
         ZenNIO.router = router
@@ -74,8 +79,6 @@ public class ZenNIO {
     }
     
     public func start() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
-        let threadPool = NIOThreadPool(numberOfThreads: System.coreCount)
         defer {
             try! threadPool.syncShutdownGracefully()
             try! eventLoopGroup.syncShutdownGracefully()
