@@ -7,10 +7,10 @@
 
 import Foundation
 
-public typealias Login = ((_ email: String, _ password: String) -> (Bool))
+public typealias Login = ((_ username: String, _ password: String) -> (Bool))
 
 public struct Account : Codable {
-    public var email: String = ""
+    public var username: String = ""
     public var password: String = ""
 }
 
@@ -64,7 +64,7 @@ class Authentication {
                 }
                 
                 let account = try JSONDecoder().decode(Account.self, from: data)
-                if self.handler(account.email, account.password) {
+                if self.handler(account.username, account.password) {
                     let data = Date().timeIntervalSinceNow.description.data(using: .utf8)!
                     let token = Token(bearer: data.base64EncodedString())
                     let session = ZenNIO.sessions.new(id: request.session!.id, token: token)
@@ -170,11 +170,11 @@ struct AuthenticationProvider : AuthenticationProtocol {
         let content = """
 var token = localStorage.getItem('token');
 function signIn() {
-    const email = document.getElementById("email").value;
+    const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
-    if (email === '' || password == '') { return; }
+    if (username === '' || password == '') { return; }
     const json = JSON.stringify({
-        email: email,
+        username: username,
         password: password
     });
     fetch('/api/login', {
@@ -227,7 +227,7 @@ function init() {
     if (token === null) {
 html = `
     <form>
-        <input class="fadeIn second" type="text" id="email" placeholder="email"/>
+        <input class="fadeIn second" type="text" id="username" placeholder="username"/>
         <input class="fadeIn third" type="password" id="password" placeholder="password"/>
         <input class="fadeIn fourth" type="button" value="Sign In" onclick="signIn()"/>
     </form>
