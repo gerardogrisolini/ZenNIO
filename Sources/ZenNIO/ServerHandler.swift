@@ -1,5 +1,5 @@
 //
-//  HTTPHandler.swift
+//  ServerHandler.swift
 //  ZenNIO
 //
 //  Created by Gerardo Grisolini on 28/02/2019.
@@ -142,26 +142,29 @@ final class ServerHandler: ChannelInboundHandler {
             }
         }
         request.setSession(session!)
-        return filter && !request.isAuthenticated
+        if filter {
+            return request.isAuthenticated
+        }
+        return true
     }
     
     private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
         let promise = request.eventLoop.makePromise(of: HttpResponse.self)
-//        request.eventLoop.execute {
-        let response = HttpResponse(promise: promise)
-        if ZenNIO.cors, processCORS(request, response) {
-            response.completed(.noContent)
-        } else if let route = route {
-            if ZenNIO.session, processSession(request, response, route.filter) {
-                response.completed(.unauthorized)
+        request.eventLoop.execute {
+            let response = HttpResponse(promise: promise)
+            if ZenNIO.cors && self.processCORS(request, response) {
+                response.completed(.noContent)
+            } else if let route = route {
+                if ZenNIO.session && !self.processSession(request, response, route.filter) {
+                    response.completed(.unauthorized)
+                } else {
+                    request.parseRequest()
+                    route.handler!(request, response)
+                }
             } else {
-                request.parseRequest()
-                route.handler!(request, response)
+                response.completed(.notFound)
             }
-        } else {
-            response.completed(.notFound)
         }
-//        }
         return promise.futureResult
     }
     
@@ -193,7 +196,11 @@ final class ServerHandler: ChannelInboundHandler {
     //    }
     
     fileprivate func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
-        let path = self.htdocsPath + request.uri
+        var path = self.htdocsPath + request.uri
+        if let index = path.firstIndex(of: "?") {
+            path = path[path.startIndex...path.index(before: index)].description
+        }
+        
         let fileHandleAndRegion = self.fileIO!.openFile(path: path, eventLoop: ctx.eventLoop)
         fileHandleAndRegion.whenFailure {
             switch $0 {
@@ -209,14 +216,14 @@ final class ServerHandler: ChannelInboundHandler {
             var responseStarted = false
             let response = responseHead(request: request, fileRegion: region, contentType: path.contentType)
             return self.fileIO!.readChunked(fileRegion: region,
-                chunkSize: 32 * 1024,
-                allocator: ctx.channel.allocator,
-                eventLoop: ctx.eventLoop) { buffer in
-                    if !responseStarted {
-                        responseStarted = true
-                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                    }
-                    return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
+                                            chunkSize: 32 * 1024,
+                                            allocator: ctx.channel.allocator,
+                                            eventLoop: ctx.eventLoop) { buffer in
+                                                if !responseStarted {
+                                                    responseStarted = true
+                                                    ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                                                }
+                                                return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
                 }.flatMap { () -> EventLoopFuture<Void> in
                     let p = ctx.eventLoop.makePromise(of: Void.self)
                     self.completeResponse(ctx, trailers: nil, promise: p)
@@ -261,7 +268,7 @@ final class ServerHandler: ChannelInboundHandler {
         }
         return head
     }
-
+    
     func channelReadComplete(context: ChannelHandlerContext) {
         context.flush()
     }
@@ -288,3 +295,4 @@ final class ServerHandler: ChannelInboundHandler {
         }
     }
 }
+
