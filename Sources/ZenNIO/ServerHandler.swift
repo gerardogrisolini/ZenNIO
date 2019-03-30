@@ -119,7 +119,7 @@ final class ServerHandler: ChannelInboundHandler {
     
     private func processCORS(_ request: HttpRequest, _ response: HttpResponse) -> Bool {
         response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
-        response.headers.add(name: "Access-Control-Allow-Headers", value: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range")
+        response.headers.add(name: "Access-Control-Allow-Headers", value: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization")
         response.headers.add(name: "Access-Control-Allow-Methods", value: "OPTIONS, POST, PUT, GET, DELETE")
         if request.head.method == .OPTIONS {
             response.headers.add(name: "Access-Control-Max-Age", value: "86400")
