@@ -94,50 +94,34 @@ public class ZenNIO {
             // Specify backlog and enable SO_REUSEADDR for the server itself
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        
-        
-        // Set the handlers that are applied to the accepted Channels
-        if let sslContext = self.sslContext {
-            let sslHandler = try! NIOSSLServerHandler(context: sslContext)
-            if httpProtocol == .v1 {
-                _ = bootstrap.childChannelInitializer { channel in
-                    return channel.pipeline.addHandler(sslHandler).flatMap {
-                        channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
-                            channel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
-                        }
+            .tlsConfig(sslContext: sslContext)
+            
+            // Set the handlers that are applied to the accepted Channels
+            .childChannelInitializer { channel in
+                if self.httpProtocol == .v1 {
+                    return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
+                        channel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                     }
-                }
-            } else {
-                // Set the handlers that are applied to the accepted Channels
-                _ = bootstrap.childChannelInitializer { channel in
-                    return channel.pipeline.addHandler(sslHandler).flatMap {
-                        channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
-                            streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                                streamChannel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
-                            }
-                        }.flatMap { (_: HTTP2StreamMultiplexer) in
-                            channel.pipeline.addHandler(ErrorHandler())
+                } else {
+                    return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
+                        streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
+                            streamChannel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                         }
+                    }.flatMap { (_: HTTP2StreamMultiplexer) in
+                        channel.pipeline.addHandler(ErrorHandler())
                     }
                 }
             }
-        } else {
-            _ = bootstrap.childChannelInitializer { channel in
-                return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
-                    channel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
-                }
-            }
-        }
-        
-        // Enable TCP_NODELAY and SO_REUSEADDR for the accepted Channels
-        _ = bootstrap.childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
+
+            // Enable TCP_NODELAY and SO_REUSEADDR for the accepted Channels
+            .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 1)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
         
         let channel = try { () -> Channel in
             return try bootstrap.bind(host: host, port: port).wait()
-            }()
+        }()
         
         guard let localAddress = channel.localAddress else {
             fatalError("Address was unable to bind.")
@@ -170,3 +154,16 @@ final class ErrorHandler: ChannelInboundHandler {
     }
 }
 
+
+extension ServerBootstrap {
+    func tlsConfig(sslContext: NIOSSLContext?) -> ServerBootstrap {
+        guard let sslContext = sslContext else {
+            return self
+        }
+
+        let sslHandler = try! NIOSSLServerHandler(context: sslContext)
+        return self.childChannelInitializer { channel in
+            channel.pipeline.addHandler(sslHandler)
+        }
+    }
+}
