@@ -111,13 +111,12 @@ final class ServerHandler: ChannelInboundHandler {
     }
 
     private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
-        let promise = request.eventLoop.newPromise(of: HttpResponse.self)
-//        request.eventLoop.execute {
-            let response = HttpResponse(promise: promise)
-            if ZenNIO.cors, processCORS(request, response) {
+        return request.eventLoop.submit { () -> HttpResponse in
+            let response = HttpResponse()
+            if ZenNIO.cors && self.processCORS(request, response) {
                 response.completed(.noContent)
             } else if let route = route {
-                if ZenNIO.session, processSession(request, response, route.filter) {
+                if ZenNIO.session && !self.processSession(request, response, route.filter) {
                     response.completed(.unauthorized)
                 } else {
                     request.parseRequest()
@@ -126,8 +125,8 @@ final class ServerHandler: ChannelInboundHandler {
             } else {
                 response.completed(.notFound)
             }
-//        }
-        return promise.futureResult
+            return response
+        }
     }
     
     private func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
@@ -158,7 +157,11 @@ final class ServerHandler: ChannelInboundHandler {
     //    }
     
     fileprivate func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
-        let path = self.htdocsPath + request.uri
+        var path = self.htdocsPath + request.uri
+        if let index = path.firstIndex(of: "?") {
+            path = path[path.startIndex...path.index(before: index)].description
+        }
+
         let fileHandleAndRegion = self.fileIO!.openFile(path: path, eventLoop: ctx.eventLoop)
         fileHandleAndRegion.whenFailure {
             switch $0 {

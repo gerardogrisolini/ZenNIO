@@ -18,6 +18,8 @@ public class ZenNIO {
     public let port: Int
     public let host: String
     public var htdocsPath: String = ""
+    public let eventLoopGroup: EventLoopGroup
+    private let threadPool: BlockingIOThreadPool
     static var router = Router()
     static var sessions = HttpSession()
     static var cors = false
@@ -26,8 +28,11 @@ public class ZenNIO {
     public init(
         host: String = "::1",
         port: Int = 8888,
-        router: Router = Router()
-        ) {
+        router: Router = Router(),
+        numberOfThreads: Int = System.coreCount
+    ) {
+        eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numberOfThreads)
+        threadPool = BlockingIOThreadPool(numberOfThreads: numberOfThreads)
         self.host = host
         self.port = port
         ZenNIO.router = router
@@ -75,11 +80,9 @@ public class ZenNIO {
     }
     
     public func start() throws {
-        let threadPool = BlockingIOThreadPool(numberOfThreads: System.coreCount)
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
         defer {
             try! threadPool.syncShutdownGracefully()
-            try! group.syncShutdownGracefully()
+            try! eventLoopGroup.syncShutdownGracefully()
         }
         
         var fileIO: NonBlockingFileIO? = nil
@@ -88,7 +91,7 @@ public class ZenNIO {
             fileIO = NonBlockingFileIO(threadPool: threadPool)
         }
         
-        let bootstrap = ServerBootstrap(group: group)
+        let bootstrap = ServerBootstrap(group: eventLoopGroup)
             // Specify backlog and enable SO_REUSEADDR for the server itself
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
@@ -156,5 +159,4 @@ func debugPrint(_ object: Any) {
     Swift.print(object)
     #endif
 }
-
 
