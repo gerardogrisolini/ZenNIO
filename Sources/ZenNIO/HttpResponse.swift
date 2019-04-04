@@ -14,10 +14,8 @@ public class HttpResponse {
     var status: HTTPResponseStatus = .ok
     var headers = HTTPHeaders()
     var body: Data? = nil
-    let promise: EventLoopPromise<HttpResponse>
     
-    init(promise: EventLoopPromise<HttpResponse>) {
-        self.promise = promise
+    init() {
         addHeader(.server, value: "ZenNIO")
         addHeader(.date, value: Date().rfc5322Date)
     }
@@ -64,7 +62,6 @@ public class HttpResponse {
             send(html: html)
         }
         addHeader(.contentLength, value: "\(body?.count ?? 0)")
-        promise.succeed(self)
     }
 }
 
