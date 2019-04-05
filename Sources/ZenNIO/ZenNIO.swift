@@ -18,6 +18,7 @@ public class ZenNIO {
     public let port: Int
     public let host: String
     public var htdocsPath: String = ""
+    public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
     private let threadPool: NIOThreadPool
     static var router = Router()
@@ -30,9 +31,11 @@ public class ZenNIO {
         port: Int = 8888,
         router: Router = Router(),
         numberOfThreads: Int = System.coreCount
-    ) {
-        eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numberOfThreads)
-        threadPool = NIOThreadPool(numberOfThreads: numberOfThreads)
+        ) {
+        numOfThreads = numberOfThreads
+        eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
+        threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
+        
         self.host = host
         self.port = port
         ZenNIO.router = router
@@ -69,11 +72,11 @@ public class ZenNIO {
         ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
         Authentication(handler: handler).makeRoutesAndHandlers(router: ZenNIO.router)
     }
-
+    
     public func setFilter(_ value: Bool, methods: [HTTPMethod], url: String) {
         ZenNIO.router.setFilter(value, methods: methods, url: url)
     }
-
+    
     static func getRoute(request: inout HttpRequest) -> Route? {
         return self.router.getRoute(request: &request)
     }
@@ -107,12 +110,12 @@ public class ZenNIO {
                         streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
                             streamChannel.pipeline.addHandler(ServerHandler(fileIO: fileIO, htdocsPath: self.htdocsPath))
                         }
-                    }.flatMap { (_: HTTP2StreamMultiplexer) in
-                        channel.pipeline.addHandler(ErrorHandler())
+                        }.flatMap { (_: HTTP2StreamMultiplexer) in
+                            channel.pipeline.addHandler(ErrorHandler())
                     }
                 }
             }
-
+            
             // Enable TCP_NODELAY and SO_REUSEADDR for the accepted Channels
             .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
             .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
@@ -121,14 +124,14 @@ public class ZenNIO {
         
         let channel = try { () -> Channel in
             return try bootstrap.bind(host: host, port: port).wait()
-        }()
+            }()
         
         guard let localAddress = channel.localAddress else {
             fatalError("Address was unable to bind.")
         }
         
         let http = sslContext != nil ? "HTTPS" : "HTTP"
-        print("\(http) ZenNIO started on\(localAddress)")
+        print("\(http) ZenNIO started on \(localAddress) with \(numOfThreads) threads")
         
         // This will never unblock as we don't close the ServerChannel
         try channel.closeFuture.wait()
@@ -160,10 +163,11 @@ extension ServerBootstrap {
         guard let sslContext = sslContext else {
             return self
         }
-
+        
         let sslHandler = try! NIOSSLServerHandler(context: sslContext)
         return self.childChannelInitializer { channel in
             channel.pipeline.addHandler(sslHandler)
         }
     }
 }
+

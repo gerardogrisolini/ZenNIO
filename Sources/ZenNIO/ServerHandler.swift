@@ -110,6 +110,7 @@ final class ServerHandler: ChannelInboundHandler {
             
             request.clientIp = context.channel.remoteAddress!.description
             request.eventLoop = context.eventLoop
+            
             processRequest(request: request, route: route)
                 .whenSuccess { response in
                     self.processResponse(ctx: context, response: response)
@@ -149,8 +150,9 @@ final class ServerHandler: ChannelInboundHandler {
     }
     
     private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
+        let promise = request.eventLoop.makePromise(of: HttpResponse.self)
         return request.eventLoop.submit { () -> HttpResponse in
-            let response = HttpResponse()
+            let response = HttpResponse(promise: promise)
             if ZenNIO.cors && self.processCORS(request, response) {
                 response.completed(.noContent)
             } else if let route = route {
@@ -167,6 +169,26 @@ final class ServerHandler: ChannelInboundHandler {
         }
     }
 
+//    private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
+//        let promise = request.eventLoop.makePromise(of: HttpResponse.self)
+//        request.eventLoop.execute {
+//            let response = HttpResponse(promise: promise)
+//            if ZenNIO.cors && self.processCORS(request, response) {
+//                response.completed(.noContent)
+//            } else if let route = route {
+//                if ZenNIO.session && !self.processSession(request, response, route.filter) {
+//                    response.completed(.unauthorized)
+//                } else {
+//                    request.parseRequest()
+//                    route.handler!(request, response)
+//                }
+//            } else {
+//                response.completed(.notFound)
+//            }
+//        }
+//        return promise.futureResult
+//    }
+    
     private func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
         ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
