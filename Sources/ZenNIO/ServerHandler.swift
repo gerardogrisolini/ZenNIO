@@ -136,7 +136,7 @@ final class ServerHandler: ChannelInboundHandler {
     private func processSession(_ request: HttpRequest, _ response: HttpResponse, _ filter: Bool) -> Bool {
         var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
         if session == nil {
-            session = ZenNIO.sessions.new()
+            session = ZenNIO.sessions.new(id: request.clientIp, token: nil)
             if request.referer.isEmpty {
                 ZenNIO.sessions.set(session: session!)
                 response.addHeader(.setCookie, value: "sessionId=\(session!.id); expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;")
@@ -150,9 +150,9 @@ final class ServerHandler: ChannelInboundHandler {
     }
     
     private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
-        let promise = request.eventLoop.makePromise(of: HttpResponse.self)
         return request.eventLoop.submit { () -> HttpResponse in
-            let response = HttpResponse(promise: promise)
+            //let promise = request.eventLoop.makePromise(of: HttpResponse.self)
+            let response = HttpResponse()
             if ZenNIO.cors && self.processCORS(request, response) {
                 response.completed(.noContent)
             } else if let route = route {
@@ -168,26 +168,26 @@ final class ServerHandler: ChannelInboundHandler {
             return response
         }
     }
-
-//    private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
-//        let promise = request.eventLoop.makePromise(of: HttpResponse.self)
-//        request.eventLoop.execute {
-//            let response = HttpResponse(promise: promise)
-//            if ZenNIO.cors && self.processCORS(request, response) {
-//                response.completed(.noContent)
-//            } else if let route = route {
-//                if ZenNIO.session && !self.processSession(request, response, route.filter) {
-//                    response.completed(.unauthorized)
-//                } else {
-//                    request.parseRequest()
-//                    route.handler!(request, response)
-//                }
-//            } else {
-//                response.completed(.notFound)
-//            }
-//        }
-//        return promise.futureResult
-//    }
+    
+    //    private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
+    //        let promise = request.eventLoop.makePromise(of: HttpResponse.self)
+    //        //request.eventLoop.execute {
+    //            let response = HttpResponse(promise: promise)
+    //            if ZenNIO.cors && self.processCORS(request, response) {
+    //                response.completed(.noContent)
+    //            } else if let route = route {
+    //                if ZenNIO.session && !self.processSession(request, response, route.filter) {
+    //                    response.completed(.unauthorized)
+    //                } else {
+    //                    request.parseRequest()
+    //                    route.handler!(request, response)
+    //                }
+    //            } else {
+    //                response.completed(.notFound)
+    //            }
+    //        //}
+    //        return promise.futureResult
+    //    }
     
     private func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
@@ -316,4 +316,5 @@ final class ServerHandler: ChannelInboundHandler {
         }
     }
 }
+
 

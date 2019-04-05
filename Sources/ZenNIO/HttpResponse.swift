@@ -13,9 +13,9 @@ public class HttpResponse {
     var status: HTTPResponseStatus = .ok
     var headers = HTTPHeaders()
     var body: Data? = nil
-    let promise: EventLoopPromise<HttpResponse>
+    let promise: EventLoopPromise<HttpResponse>?
     
-    init(promise: EventLoopPromise<HttpResponse>) {
+    init(promise: EventLoopPromise<HttpResponse>? = nil) {
         self.promise = promise
         addHeader(.server, value: "ZenNIO")
         addHeader(.date, value: Date().rfc5322Date)
@@ -49,18 +49,19 @@ public class HttpResponse {
         self.status = status
         if status.code > 300 {
             let html = """
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-<html>
-<head><title>\(status.reasonPhrase)</title></head>
-<body>
-<p>\(headers[HttpHeader.server.rawValue].first!)</p>
-<h1>\(status.code) - \(status.reasonPhrase)</h1>
-</body>
-</html>
-"""
+            <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+            <html>
+            <head><title>\(status.reasonPhrase)</title></head>
+            <body>
+            <p>\(headers[HttpHeader.server.rawValue].first!)</p>
+            <h1>\(status.code) - \(status.reasonPhrase)</h1>
+            </body>
+            </html>
+            """
             send(html: html)
         }
         addHeader(.contentLength, value: "\(body?.count ?? 0)")
-        promise.succeed(self)
+        promise?.succeed(self)
     }
 }
+
