@@ -21,7 +21,7 @@ public struct Token : Codable {
     public init(basic: String) {
         self.basic = basic
     }
-
+    
     public init(bearer: String) {
         self.bearer = bearer
     }
@@ -49,11 +49,11 @@ class Authentication {
             response.send(html: html)
             response.completed()
         }
-
+        
         router.post("/api/logout") { request, response in
             ZenNIO.sessions.remove(id: request.session!.id)
-            //response.addHeader(.setCookie, value: "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
-            //response.addHeader(.setCookie, value: "sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
+            response.addHeader(.setCookie, value: "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
+            response.addHeader(.setCookie, value: "sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             response.completed(.noContent)
         }
         
@@ -69,7 +69,7 @@ class Authentication {
                     let token = Token(bearer: data.base64EncodedString())
                     let session = ZenNIO.sessions.new(id: request.session!.id, token: token)
                     ZenNIO.sessions.set(session: session)
-                    //response.addHeader(.setCookie, value: "token=\(token.bearer)")
+                    response.addHeader(.setCookie, value: "token=\(token.bearer)")
                     try response.send(json: token)
                     response.completed()
                 } else {
@@ -88,19 +88,19 @@ class Authentication {
             response.send(data: self.provider.icon)
             response.completed()
         }
-
+        
         router.get("/assets/scripts.js") { request, response in
             response.addHeader(.contentType, value: "text/javascript")
             response.send(data: self.provider.script())
             response.completed()
         }
-
+        
         router.get("/assets/style.css") { request, response in
             response.addHeader(.contentType, value: "text/css")
             response.send(data: self.provider.style)
             response.completed()
         }
-
+        
         router.get("/assets/logo.png") { request, response in
             response.addHeader(.contentType, value: "image/png")
             response.send(data: self.provider.logo)
@@ -118,54 +118,54 @@ protocol AuthenticationProtocol {
 }
 
 struct AuthenticationProvider : AuthenticationProtocol {
-//    <link rel="preload" href="/assets/logo.png" as="image">
-//    <link rel="preload" href="/assets/style.css" as="style">
-//    <link rel="preload" href="/assets/scripts.js" as="script">
-//    <script src="/assets/scripts.js?id=2"></script>
-//    <script src="/assets/scripts.js?id=3"></script>
-//    <script src="/assets/scripts.js?id=4" defer=""></script>
-//    <script src="/assets/scripts.js?id=5" defer=""></script>
-//    <script src="/assets/scripts.js?id=6" defer=""></script>
-//    <script src="/assets/scripts.js?id=7" async=""></script>
-//    <script src="/assets/scripts.js?id=8" async=""></script>
-//    <script src="/assets/scripts.js?id=9" async=""></script>
-//    <script src="/assets/scripts.js?id=10" async=""></script>
-
+    //    <link rel="preload" href="/assets/logo.png" as="image">
+    //    <link rel="preload" href="/assets/style.css" as="style">
+    //    <link rel="preload" href="/assets/scripts.js" as="script">
+    //    <script src="/assets/scripts.js?id=2"></script>
+    //    <script src="/assets/scripts.js?id=3"></script>
+    //    <script src="/assets/scripts.js?id=4" defer=""></script>
+    //    <script src="/assets/scripts.js?id=5" defer=""></script>
+    //    <script src="/assets/scripts.js?id=6" defer=""></script>
+    //    <script src="/assets/scripts.js?id=7" async=""></script>
+    //    <script src="/assets/scripts.js?id=8" async=""></script>
+    //    <script src="/assets/scripts.js?id=9" async=""></script>
+    //    <script src="/assets/scripts.js?id=10" async=""></script>
+    
     func html(ip: String) -> String {
         let content: String = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>ZenNIO - authentication</title>
-    <base href="/">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex">
-    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-    <link rel="stylesheet" href="/assets/style.css">
-    <script src="/assets/scripts.js"></script>
-</head>
-<body onload="init()">
-    <div class="wrapper fadeInDown">
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="UTF-8">
+        <title>ZenNIO - authentication</title>
+        <base href="/">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noindex">
+        <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+        <link rel="stylesheet" href="/assets/style.css">
+        <script src="/assets/scripts.js"></script>
+        </head>
+        <body onload="init()">
+        <div class="wrapper fadeInDown">
         <div id="formContent">
-            <img class="fadeIn first" id="logo" alt="Logo" src="/assets/logo.png">
-            <h2 class="active underlineHover"> Authentication </h2>
-            <br/>
-            <p> Hello from ZenNIO </p>
-            <p> IP: \(ip) </p>
-            <div id="auth"></div>
-            <div id="formFooter">
-                <a class="underlineHover" href="#">Information privacy</a>
-            </div>
+        <img class="fadeIn first" id="logo" alt="Logo" src="/assets/logo.png">
+        <h2 class="active underlineHover"> Authentication </h2>
+        <br/>
+        <p> Hello from ZenNIO </p>
+        <p> IP: \(ip) </p>
+        <div id="auth"></div>
+        <div id="formFooter">
+        <a class="underlineHover" href="#">Information privacy</a>
         </div>
-    </div>
-</body>
-</html>
-
-"""
+        </div>
+        </div>
+        </body>
+        </html>
+        
+        """
         return content
     }
- 
+    
     func script() -> Data {
         let content = """
 var token = localStorage.getItem('token');
@@ -192,7 +192,7 @@ function signIn() {
 function saveToken(json) {
     if (json && json.bearer) {
         localStorage.setItem('token', 'Bearer ' + json.bearer);
-        document.cookie = 'token=' + json.bearer + '; expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;';
+        //document.cookie = 'token=' + json.bearer + '; expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;';
         if (document.referrer) {
             self.location = document.referrer;
         } else {
@@ -214,7 +214,7 @@ function signOut() {
     .catch(error => console.log(error));
 }
 function removeToken() {
-    document.cookie = 'token=' + localStorage.getItem('token') + '; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'token=' + localStorage.getItem('token') + '; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     localStorage.removeItem('token');
     if (document.referrer) {
         self.location = document.referrer;
@@ -244,7 +244,7 @@ html = `
 """
         return content.data(using: .utf8)!
     }
-
+    
     var style: Data {
         let content = """
 @import url('https://fonts.googleapis.com/css?family=Poppins');
@@ -528,4 +528,5 @@ input[type=text]:placeholder, input[type=password]:placeholder {
         return Data(base64Encoded: content, options: .init(rawValue: 0))!
     }
 }
+
 

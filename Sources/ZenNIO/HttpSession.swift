@@ -11,9 +11,14 @@ struct HttpSession {
     
     private var sessions = [Session]()
     
-    mutating func new(id: String = "X", token: Token? = nil) -> Session {
-        let data = "\(id)-\(Date().timeIntervalSinceNow)".data(using: .utf8)!
-        let base64 = data.base64EncodedString()
+    mutating func new(id: String = "", token: Token? = nil) -> Session {
+        var base64 = id
+        if id.isEmpty {
+            let date = Date()
+            let data = "\(date.timeIntervalSinceNow)-\(date.timeIntervalSinceReferenceDate)".data(using: .utf8)!
+            base64 = data.base64EncodedString()
+        }
+        
         var session = Session(id: base64)
         session.token = token
         
