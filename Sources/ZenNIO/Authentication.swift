@@ -7,7 +7,7 @@
 
 import Foundation
 
-public typealias Login = ((_ username: String, _ password: String) -> (Bool))
+public typealias Login = ((_ username: String, _ password: String) -> (String?))
 
 public struct Account : Codable {
     public var username: String = ""
@@ -64,10 +64,11 @@ class Authentication {
                 }
                 
                 let account = try JSONDecoder().decode(Account.self, from: data)
-                if self.handler(account.username, account.password) {
+                if let uniqueID = self.handler(account.username, account.password) {
                     let data = Date().timeIntervalSinceNow.description.data(using: .utf8)!
                     let token = Token(bearer: data.base64EncodedString())
-                    let session = ZenNIO.sessions.new(id: request.session!.id, token: token)
+                    var session = ZenNIO.sessions.new(id: request.session!.id, token: token)
+                    session.uniqueID = uniqueID
                     ZenNIO.sessions.set(session: session)
                     response.addHeader(.setCookie, value: "token=\(token.bearer)")
                     try response.send(json: token)
@@ -528,5 +529,6 @@ input[type=text]:placeholder, input[type=password]:placeholder {
         return Data(base64Encoded: content, options: .init(rawValue: 0))!
     }
 }
+
 
 
