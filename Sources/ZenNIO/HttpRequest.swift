@@ -29,11 +29,11 @@ public class HttpRequest {
         self.parseHeadParameters()
     }
     
-    var authorization: String {
+    public var authorization: String {
         return head.headers[HttpHeader.authorization.rawValue].first ?? ""
     }
     
-    var cookies: String {
+    public var cookies: String {
         return head.headers[HttpHeader.cookie.rawValue].joined(separator: ",")
     }
     
@@ -41,7 +41,7 @@ public class HttpRequest {
         return head.headers[HttpHeader.referer.rawValue].first ?? ""
     }
     
-    var isAuthenticated: Bool {
+    public var isAuthenticated: Bool {
         if let token = session?.token {
             if authorization == "Bearer \(token.bearer)" {
                 return true

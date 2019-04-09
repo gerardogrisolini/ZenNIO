@@ -7,15 +7,24 @@
 
 import Foundation
 
-public typealias Login = ((_ email: String, _ password: String) -> (Bool))
+public typealias Login = ((_ username: String, _ password: String) -> (String?))
 
 public struct Account : Codable {
-    public var email: String = ""
+    public var username: String = ""
     public var password: String = ""
 }
 
 public struct Token : Codable {
+    public var basic: String = ""
     public var bearer: String = ""
+    
+    public init(basic: String) {
+        self.basic = basic
+    }
+    
+    public init(bearer: String) {
+        self.bearer = bearer
+    }
 }
 
 class Authentication {
@@ -31,7 +40,7 @@ class Authentication {
     func makeRoutesAndHandlers(router: Router) {
         
         router.get("/auth") { request, response in
-            response.addHeader(.link, value: "</assets/logo.png>; rel=preload; as=image, </assets/style.css>; rel=preload; as=style, </assets/scripts.js>; rel=preload; as=script")
+            //response.addHeader(.link, value: "</assets/logo.png>; rel=preload; as=image, </assets/style.css>; rel=preload; as=style, </assets/scripts.js>; rel=preload; as=script")
             //response.addHeader(.cache, value: "no-cache")
             //response.addHeader(.cache, value: "max-age=1440") // 1 days
             //response.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)
@@ -40,27 +49,28 @@ class Authentication {
             response.send(html: html)
             response.completed()
         }
-
+        
         router.post("/api/logout") { request, response in
             ZenNIO.sessions.remove(id: request.session!.id)
-            //response.addHeader(.setCookie, value: "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
-            //response.addHeader(.setCookie, value: "sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
+            response.addHeader(.setCookie, value: "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
+            response.addHeader(.setCookie, value: "sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             response.completed(.noContent)
         }
         
         router.post("/api/login") { request, response in
             do {
-                guard request.body.count > 0 else {
+                guard let data = request.bodyData else {
                     throw HttpError.badRequest
                 }
                 
-                let account = try JSONDecoder().decode(Account.self, from: Data(request.body))
-                if self.handler(account.email, account.password) {
+                let account = try JSONDecoder().decode(Account.self, from: data)
+                if let uniqueID = self.handler(account.username, account.password) {
                     let data = Date().timeIntervalSinceNow.description.data(using: .utf8)!
                     let token = Token(bearer: data.base64EncodedString())
-                    let session = ZenNIO.sessions.new(id: request.session!.id, token: token)
+                    var session = ZenNIO.sessions.new(id: request.session!.id, token: token)
+                    session.uniqueID = uniqueID
                     ZenNIO.sessions.set(session: session)
-                    //response.addHeader(.setCookie, value: "token=\(token.bearer)")
+                    response.addHeader(.setCookie, value: "token=\(token.bearer)")
                     try response.send(json: token)
                     response.completed()
                 } else {
@@ -79,19 +89,19 @@ class Authentication {
             response.send(data: self.provider.icon)
             response.completed()
         }
-
+        
         router.get("/assets/scripts.js") { request, response in
             response.addHeader(.contentType, value: "text/javascript")
             response.send(data: self.provider.script())
             response.completed()
         }
-
+        
         router.get("/assets/style.css") { request, response in
             response.addHeader(.contentType, value: "text/css")
             response.send(data: self.provider.style)
             response.completed()
         }
-
+        
         router.get("/assets/logo.png") { request, response in
             response.addHeader(.contentType, value: "image/png")
             response.send(data: self.provider.logo)
@@ -109,63 +119,63 @@ protocol AuthenticationProtocol {
 }
 
 struct AuthenticationProvider : AuthenticationProtocol {
-//    <link rel="preload" href="/assets/logo.png" as="image">
-//    <link rel="preload" href="/assets/style.css" as="style">
-//    <link rel="preload" href="/assets/scripts.js" as="script">
-//    <script src="/assets/scripts.js?id=2"></script>
-//    <script src="/assets/scripts.js?id=3"></script>
-//    <script src="/assets/scripts.js?id=4" defer=""></script>
-//    <script src="/assets/scripts.js?id=5" defer=""></script>
-//    <script src="/assets/scripts.js?id=6" defer=""></script>
-//    <script src="/assets/scripts.js?id=7" async=""></script>
-//    <script src="/assets/scripts.js?id=8" async=""></script>
-//    <script src="/assets/scripts.js?id=9" async=""></script>
-//    <script src="/assets/scripts.js?id=10" async=""></script>
-
+    //    <link rel="preload" href="/assets/logo.png" as="image">
+    //    <link rel="preload" href="/assets/style.css" as="style">
+    //    <link rel="preload" href="/assets/scripts.js" as="script">
+    //    <script src="/assets/scripts.js?id=2"></script>
+    //    <script src="/assets/scripts.js?id=3"></script>
+    //    <script src="/assets/scripts.js?id=4" defer=""></script>
+    //    <script src="/assets/scripts.js?id=5" defer=""></script>
+    //    <script src="/assets/scripts.js?id=6" defer=""></script>
+    //    <script src="/assets/scripts.js?id=7" async=""></script>
+    //    <script src="/assets/scripts.js?id=8" async=""></script>
+    //    <script src="/assets/scripts.js?id=9" async=""></script>
+    //    <script src="/assets/scripts.js?id=10" async=""></script>
+    
     func html(ip: String) -> String {
         let content: String = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>ZenNIO - authentication</title>
-    <base href="/">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex">
-    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-    <link rel="stylesheet" href="/assets/style.css">
-    <script src="/assets/scripts.js"></script>
-</head>
-<body onload="init()">
-    <div class="wrapper fadeInDown">
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="UTF-8">
+        <title>ZenNIO - authentication</title>
+        <base href="/">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noindex">
+        <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+        <link rel="stylesheet" href="/assets/style.css">
+        <script src="/assets/scripts.js"></script>
+        </head>
+        <body onload="init()">
+        <div class="wrapper fadeInDown">
         <div id="formContent">
-            <img class="fadeIn first" id="logo" alt="Logo" src="/assets/logo.png">
-            <h2 class="active underlineHover"> Authentication </h2>
-            <br/>
-            <p> Hello from ZenNIO </p>
-            <p> IP: \(ip) </p>
-            <div id="auth"></div>
-            <div id="formFooter">
-                <a class="underlineHover" href="#">Information privacy</a>
-            </div>
+        <img class="fadeIn first" id="logo" alt="Logo" src="/assets/logo.png">
+        <h2 class="active underlineHover"> Authentication </h2>
+        <br/>
+        <p> Hello from ZenNIO </p>
+        <p> IP: \(ip) </p>
+        <div id="auth"></div>
+        <div id="formFooter">
+        <a class="underlineHover" href="#">Information privacy</a>
         </div>
-    </div>
-</body>
-</html>
-
-"""
+        </div>
+        </div>
+        </body>
+        </html>
+        
+        """
         return content
     }
- 
+    
     func script() -> Data {
         let content = """
 var token = localStorage.getItem('token');
 function signIn() {
-    const email = document.getElementById("email").value;
+    const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
-    if (email === '' || password == '') { return; }
+    if (username === '' || password == '') { return; }
     const json = JSON.stringify({
-        email: email,
+        username: username,
         password: password
     });
     fetch('/api/login', {
@@ -183,7 +193,7 @@ function signIn() {
 function saveToken(json) {
     if (json && json.bearer) {
         localStorage.setItem('token', 'Bearer ' + json.bearer);
-        document.cookie = 'token=' + json.bearer + '; expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;';
+        //document.cookie = 'token=' + json.bearer + '; expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;';
         if (document.referrer) {
             self.location = document.referrer;
         } else {
@@ -205,7 +215,7 @@ function signOut() {
     .catch(error => console.log(error));
 }
 function removeToken() {
-    document.cookie = 'token=' + localStorage.getItem('token') + '; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'token=' + localStorage.getItem('token') + '; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     localStorage.removeItem('token');
     if (document.referrer) {
         self.location = document.referrer;
@@ -218,7 +228,7 @@ function init() {
     if (token === null) {
 html = `
     <form>
-        <input class="fadeIn second" type="text" id="email" placeholder="email"/>
+        <input class="fadeIn second" type="text" id="username" placeholder="username"/>
         <input class="fadeIn third" type="password" id="password" placeholder="password"/>
         <input class="fadeIn fourth" type="button" value="Sign In" onclick="signIn()"/>
     </form>
@@ -235,7 +245,7 @@ html = `
 """
         return content.data(using: .utf8)!
     }
-
+    
     var style: Data {
         let content = """
 @import url('https://fonts.googleapis.com/css?family=Poppins');
@@ -519,4 +529,6 @@ input[type=text]:placeholder, input[type=password]:placeholder {
         return Data(base64Encoded: content, options: .init(rawValue: 0))!
     }
 }
+
+
 

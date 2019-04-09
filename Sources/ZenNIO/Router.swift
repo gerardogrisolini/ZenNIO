@@ -47,18 +47,20 @@ public class Router {
     public func delete(_ uri: String, handler: @escaping HttpHandler) {
         addHandler(method: .DELETE, uri: uri, handler: handler)
     }
-    
-    func addFilter(method: HTTPMethod, url: String) {
-        if routes[method] == nil { return }
-        for index in routes[method]!.indices {
-            if url.last == "*" {
-                let count = url.count - (url.count == 2 ? 1 : 2)
-                let uri = url.prefix(count).description
-                if routes[method]![index].pattern.hasPrefix(uri) { //&& routes[method]![index].pattern != uri {
-                    routes[method]![index].filter = true
+
+    func setFilter(_ value: Bool, methods: [HTTPMethod], url: String) {
+        for method in methods {
+            if routes[method] == nil { continue }
+            for index in routes[method]!.indices {
+                if url.last == "*" {
+                    let count = url.count - (url.count == 2 ? 1 : 2)
+                    let uri = url.prefix(count).description
+                    if routes[method]![index].pattern.hasPrefix(uri) { //&& routes[method]![index].pattern != uri {
+                        routes[method]![index].filter = value
+                    }
+                } else if routes[method]![index].pattern == url {
+                    routes[method]![index].filter = value
                 }
-            } else if routes[method]![index].pattern == url {
-                routes[method]![index].filter = true
             }
         }
     }

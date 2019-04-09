@@ -9,7 +9,7 @@ final class ZenNIOTests: XCTestCase {
         var email: String = ""
     }
 
-    func testExample() {
+    func testStartServer() {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
@@ -43,7 +43,7 @@ final class ZenNIOTests: XCTestCase {
                 cache: 'no-cache',
                 body: json
             })
-            .then(res => res.status == 401 ? alert(res.status + ' - ' + res.statusText) : res.json())
+            .then(res => res.status == 401 ? alert(res.status + ' - Unauthorized') : res.json())
             .then(json => json ? alert(JSON.stringify(json)) : console.log('Invalid json'))
             .catch(error => console.log(error));
         }
@@ -193,20 +193,25 @@ final class ZenNIOTests: XCTestCase {
         }
 
         let server = ZenNIO(router: router)
+        
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> (Bool) in
             return email == password
         })
-        server.addFilter(method: .POST, url: "/*")
-//        // Webroot with static files (optional)
-//        server.addWebroot(path: "/var/www/html")
-//        // CORS (optional)
-//        server.addCORS()
-//        // SSL (optional)
+        server.setFilter(true, methods: [.POST], url: "/api/client")
+        server.setFilter(true, methods: [.POST], url: "/client")
+
+        // Webroot with static files (optional)
+        //server.addWebroot(path: "/var/www/html")
+        
+        // CORS (optional)
+        //server.addCORS()
+        
+        // SSL (optional)
 //        XCTAssertNoThrow(
 //            try server.addSSL(
-//                certFile: "./cert.pem",
-//                keyFile: "./key.pem",
+//                certFile: "/Users/gerardo/Projects/ZenNIO/SSL/cert.pem",
+//                keyFile: "/Users/gerardo/Projects/ZenNIO/SSL/key.pem",
 //                http: .v2
 //            )
 //        )
@@ -215,6 +220,6 @@ final class ZenNIOTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testExample", testExample),
+        ("testStartServer", testStartServer),
     ]
 }

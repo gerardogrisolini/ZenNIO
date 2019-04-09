@@ -10,20 +10,21 @@ import Foundation
 struct HttpSession {
     
     private var sessions = [Session]()
-
+    
     mutating func new(id: String = "", token: Token? = nil) -> Session {
         var base64 = id
         if id.isEmpty {
-            let data = Date().timeIntervalSinceNow.description.data(using: .utf8)!
+            let date = Date()
+            let data = "\(date.timeIntervalSinceNow)-\(date.timeIntervalSinceReferenceDate)".data(using: .utf8)!
             base64 = data.base64EncodedString()
         }
         
         var session = Session(id: base64)
         session.token = token
-
+        
         return session
     }
-
+    
     mutating func set(session: Session) {
         if let index = sessions.firstIndex(where: { $0.id == session.id }) {
             sessions[index] = session
@@ -39,7 +40,7 @@ struct HttpSession {
                 return sessions[index]
             }
         }
-
+        
         if !cookies.isEmpty {
             let items = cookies.split(separator: ";")
             if let item = items.first(where: { $0.contains("sessionId") }) {
@@ -55,13 +56,14 @@ struct HttpSession {
                 }
             }
         }
-
+        
         return nil
     }
-
+    
     mutating func remove(id: String) {
         sessions.removeAll { session -> Bool in
             return session.id == id
         }
     }
 }
+

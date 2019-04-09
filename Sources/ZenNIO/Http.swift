@@ -51,6 +51,7 @@ public enum HttpError: Swift.Error {
 public struct Session {
     public let id: String
     public var date: Date
+    public var uniqueID: String?
     public var token: Token?
     
     public init(id: String) {
