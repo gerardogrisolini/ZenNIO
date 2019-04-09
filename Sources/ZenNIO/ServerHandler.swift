@@ -8,7 +8,7 @@
 import NIO
 import NIOHTTP1
 
-open class ServerHandler: ChannelInboundHandler {    
+open class ServerHandler: ChannelInboundHandler {
     public typealias InboundIn = HTTPServerRequestPart
     public typealias OutboundOut = HTTPServerResponsePart
     
@@ -79,8 +79,8 @@ open class ServerHandler: ChannelInboundHandler {
             
             var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
             savedBodyBytes.removeAll()
-            let route = ZenNIO.getRoute(request: &request)
-            if route != nil && route?.handler == nil {
+            
+            guard let route = ZenNIO.getRoute(request: &request) else {
                 fileRequest(ctx: context, request: infoSavedRequestHead!)
                 return
             }
@@ -126,21 +126,17 @@ open class ServerHandler: ChannelInboundHandler {
         return true
     }
     
-    private func processRequest(request: HttpRequest, route: Route?) -> EventLoopFuture<HttpResponse> {
+    private func processRequest(request: HttpRequest, route: Route) -> EventLoopFuture<HttpResponse> {
         let promise = request.eventLoop.makePromise(of: HttpResponse.self)
         request.eventLoop.execute {
             let response = HttpResponse(promise: promise)
             if ZenNIO.cors && self.processCORS(request, response) {
                 response.completed(.noContent)
-            } else if let route = route {
-                if ZenNIO.session && !self.processSession(request, response, route.filter) {
-                    response.completed(.unauthorized)
-                } else {
-                    request.parseRequest()
-                    route.handler!(request, response)
-                }
+            } else if ZenNIO.session && !self.processSession(request, response, route.filter) {
+                response.completed(.unauthorized)
             } else {
-                response.completed(.notFound)
+                request.parseRequest()
+                route.handler(request, response)
             }
         }
         return promise.futureResult
@@ -165,14 +161,23 @@ open class ServerHandler: ChannelInboundHandler {
         
         let fileHandleAndRegion = self.fileIO!.openFile(path: path, eventLoop: ctx.eventLoop)
         fileHandleAndRegion.whenFailure {
+            let status: HTTPResponseStatus
             switch $0 {
             case let e as IOError where e.errnoCode == ENOENT:
-                print("IOError (not found)")
+                print("IOError (file not found): \(path)")
+                status = .notFound
             case let e as IOError:
-                print("IOError (other)")
+                print("IOError (other): \(e.reason) - \(e.description)")
+                status = .internalServerError
             default:
                 print("\($0): \(type(of: $0)) error")
+                status = .badRequest
             }
+            var response = self.httpResponseHead(request: request, status: status)
+            response.headers.add(name: "Content-Length", value: "0")
+            ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+            self.state.responseComplete()
+            _ = ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
         }
         fileHandleAndRegion.whenSuccess { (file, region) in
             var responseStarted = false
@@ -257,6 +262,4 @@ open class ServerHandler: ChannelInboundHandler {
         }
     }
 }
-
-
 

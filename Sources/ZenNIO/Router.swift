@@ -7,7 +7,6 @@
 
 import Foundation
 import NIOHTTP1
-import PathKit
 
 extension HTTPMethod : Hashable {
     public func hash(into hasher: inout Hasher) {
@@ -21,17 +20,17 @@ struct Route {
     var filter: Bool
     var pattern: String
     var regex: NSRegularExpression?
-    var handler: HttpHandler?
+    var handler: HttpHandler
     var params: [String: Array<String>.Index]
 }
 
 public class Router {
     private var routes: Dictionary<HTTPMethod, [Route]>
-   
+    
     public init() {
         routes = Dictionary<HTTPMethod, [Route]>()
     }
-
+    
     public func get(_ uri: String, handler: @escaping HttpHandler) {
         addHandler(method: .GET, uri: uri, handler: handler)
     }
@@ -39,15 +38,15 @@ public class Router {
     public func post(_ uri: String, handler: @escaping HttpHandler) {
         addHandler(method: .POST, uri: uri, handler: handler)
     }
-
+    
     public func put(_ uri: String, handler: @escaping HttpHandler) {
         addHandler(method: .PUT, uri: uri, handler: handler)
     }
-
+    
     public func delete(_ uri: String, handler: @escaping HttpHandler) {
         addHandler(method: .DELETE, uri: uri, handler: handler)
     }
-
+    
     func setFilter(_ value: Bool, methods: [HTTPMethod], url: String) {
         for method in methods {
             if routes[method] == nil { continue }
@@ -70,7 +69,7 @@ public class Router {
         if let route = routes[request.head.method]?
             .first(where: {
                 $0.regex == nil && $0.pattern == request.url
-                || $0.regex?.firstMatch(in: request.url, options: [], range: range) != nil
+                    || $0.regex?.firstMatch(in: request.url, options: [], range: range) != nil
             }) {
             for param in route.params {
                 let value = request.paths[param.value].description
@@ -94,7 +93,7 @@ public class Router {
             print("Warning: duplicated route \(method) \(uri).")
             return
         }
-
+        
         let regex = RouteRegex.sharedInstance.buildRegex(fromPattern: uri)
         //debugPrint(regex)
         var params = [String : Array<String>.Index]()
@@ -110,23 +109,5 @@ public class Router {
         let route = Route(filter: false, pattern: uri, regex: regex.0, handler: handler, params: params)
         append(method: method, route: route)
     }
-    
-    func initFolder(webroot: String) {
-        do {
-            let uris = try Path(webroot).recursiveChildren()
-            print("Webroot: \(webroot)")
-            uris.forEach { uri in
-                let path = uri.description.replacingOccurrences(of: webroot, with: "")
-                addFileHandler(uri: path)
-                debugPrint(path)
-            }
-        } catch {
-            print(error.localizedDescription)
-        }
-    }
-
-    func addFileHandler(uri: String) {
-        let route = Route(filter: false, pattern: uri, regex: nil, handler: nil, params: [:])
-        append(method: .GET, route: route)
-    }
 }
+

@@ -23,13 +23,13 @@ open class ZenNIO {
     static var cors = false
     static var session = false
     
-
+    
     public init(
         host: String = "::1",
         port: Int = 8888,
         router: Router = Router(),
         numberOfThreads: Int = System.coreCount
-    ) {
+        ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
         threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
@@ -43,7 +43,7 @@ open class ZenNIO {
     
     public func addWebroot(path: String = "webroot") {
         htdocsPath = path
-        ZenNIO.router.initFolder(webroot: path)
+        //        ZenNIO.router.initFolder(webroot: path)
     }
     
     public func addCORS() {
@@ -112,7 +112,7 @@ open class ZenNIO {
         p.succeed(())
         return p.futureResult
     }
-
+    
     open func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { (c) -> EventLoopFuture<Void> in
             channel.pipeline.addHandler(ServerHandler(fileIO: self.fileIO, htdocsPath: self.htdocsPath))
@@ -127,3 +127,4 @@ open class ZenNIO {
 //    Swift.print(object)
 //    #endif
 //}
+
