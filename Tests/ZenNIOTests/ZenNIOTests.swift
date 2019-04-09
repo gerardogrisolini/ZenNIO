@@ -1,5 +1,7 @@
 import XCTest
 @testable import ZenNIO
+@testable import ZenNIOSSL
+@testable import ZenNIOH2
 
 final class ZenNIOTests: XCTestCase {
 
@@ -195,8 +197,8 @@ final class ZenNIOTests: XCTestCase {
         let server = ZenNIO(router: router)
         
         // OAuth2 (optional)
-        server.addAuthentication(handler: { (email, password) -> (Bool) in
-            return email == password
+        server.addAuthentication(handler: { (email, password) -> (String?) in
+            return email == password ? "ok" : nil
         })
         server.setFilter(true, methods: [.POST], url: "/api/client")
         server.setFilter(true, methods: [.POST], url: "/client")
@@ -208,13 +210,13 @@ final class ZenNIOTests: XCTestCase {
         //server.addCORS()
         
         // SSL (optional)
-//        XCTAssertNoThrow(
-//            try server.addSSL(
-//                certFile: "/Users/gerardo/Projects/ZenNIO/SSL/cert.pem",
-//                keyFile: "/Users/gerardo/Projects/ZenNIO/SSL/key.pem",
-//                http: .v2
-//            )
-//        )
+        XCTAssertNoThrow(
+            try server.addSSL(
+                certFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/cert.pem",
+                keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/key.pem",
+                http: .v2
+            )
+        )
 
         XCTAssertNoThrow(try server.start())
     }

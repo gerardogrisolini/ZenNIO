@@ -9,6 +9,12 @@ let package = Package(
         .library(
             name: "ZenNIO",
             targets: ["ZenNIO"]),
+        .library(
+            name: "ZenNIOSSL",
+            targets: ["ZenNIOSSL"]),
+        .library(
+            name: "ZenNIOH2",
+            targets: ["ZenNIOH2"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
@@ -22,14 +28,26 @@ let package = Package(
             dependencies: [
                 "NIO",
                 "NIOConcurrencyHelpers",
-                "NIOSSL",
                 "NIOHTTP1",
-                "NIOHTTP2",
                 "PathKit"
+            ]
+        ),
+        .target(
+            name: "ZenNIOSSL",
+            dependencies: [
+                "ZenNIO",
+                "NIOSSL"
+            ]
+        ),
+        .target(
+            name: "ZenNIOH2",
+            dependencies: [
+                "ZenNIO",
+                "NIOHTTP2"
             ]
         ),
         .testTarget(
             name: "ZenNIOTests",
-            dependencies: ["ZenNIO"])
+            dependencies: ["ZenNIO", "ZenNIOSSL", "ZenNIOH2"])
     ]
 )

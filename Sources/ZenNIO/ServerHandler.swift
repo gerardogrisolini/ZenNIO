@@ -30,7 +30,7 @@ private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStat
     return head
 }
 
-final class ServerHandler: ChannelInboundHandler {
+final public class ServerHandler: ChannelInboundHandler {
     
     public typealias InboundIn = HTTPServerRequestPart
     public typealias OutboundOut = HTTPServerResponsePart
@@ -88,7 +88,7 @@ final class ServerHandler: ChannelInboundHandler {
         context.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
     }
     
-    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+    public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let reqPart = self.unwrapInboundIn(data)
         switch reqPart {
         case .head(let request):
@@ -270,15 +270,15 @@ final class ServerHandler: ChannelInboundHandler {
         return head
     }
     
-    func channelReadComplete(context: ChannelHandlerContext) {
+    public func channelReadComplete(context: ChannelHandlerContext) {
         context.flush()
     }
     
-    func handlerAdded(context: ChannelHandlerContext) {
+    public func handlerAdded(context: ChannelHandlerContext) {
         self.buffer = context.channel.allocator.buffer(capacity: 0)
     }
     
-    func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
         switch event {
         case let evt as ChannelEvent where evt == ChannelEvent.inputClosed:
             // The remote peer half-closed the channel. At this time, any
