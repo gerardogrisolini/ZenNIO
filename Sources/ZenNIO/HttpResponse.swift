@@ -10,9 +10,9 @@ import NIO
 import NIOHTTP1
 
 public class HttpResponse {
-    var status: HTTPResponseStatus = .ok
-    var headers = HTTPHeaders()
-    var body: Data? = nil
+    public var status: HTTPResponseStatus = .ok
+    public var headers = HTTPHeaders()
+    public var body: Data? = nil
     let promise: EventLoopPromise<HttpResponse>?
     
     init(promise: EventLoopPromise<HttpResponse>? = nil) {

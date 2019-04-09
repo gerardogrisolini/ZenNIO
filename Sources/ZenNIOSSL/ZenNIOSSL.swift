@@ -9,10 +9,8 @@ import NIO
 import NIOSSL
 import ZenNIO
 
-public class ZenNIOSSL: ZenNIO {
-    var ssl: NIOSSLContext {
-        return sslContext as! NIOSSLContext
-    }
+open class ZenNIOSSL: ZenNIO {
+    public var sslContext: NIOSSLContext!
     
     public func addSSL(certFile: String, keyFile: String) throws {
         let config = TLSConfiguration.forServer(
@@ -28,8 +26,8 @@ public class ZenNIOSSL: ZenNIO {
         sslContext = try! NIOSSLContext(configuration: config)
     }
     
-    public override func tlsConfig(channel: Channel) {
-        let sslHandler = try! NIOSSLServerHandler(context: ssl)
-        _ = channel.pipeline.addHandler(sslHandler)
+    open override func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
+        let sslHandler = try! NIOSSLServerHandler(context: sslContext)
+        return channel.pipeline.addHandler(sslHandler)
     }
 }

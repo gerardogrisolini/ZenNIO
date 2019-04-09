@@ -14,7 +14,6 @@ open class ZenNIO {
     public let host: String
     public var htdocsPath: String = ""
     public let numOfThreads: Int
-    public var sslContext: Any? = nil
     public let eventLoopGroup: EventLoopGroup
     public var fileIO: NonBlockingFileIO? = nil
     private let threadPool: NIOThreadPool
@@ -82,8 +81,9 @@ open class ZenNIO {
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             // Set the handlers that are applied to the accepted Channels
             .childChannelInitializer { channel in
-                //self.tlsConfig(channel: channel)
-                return self.httpConfig(channel: channel)
+                return self.tlsConfig(channel: channel).flatMap({ () -> EventLoopFuture<Void> in
+                    self.httpConfig(channel: channel)
+                })
             }
             // Enable TCP_NODELAY and SO_REUSEADDR for the accepted Channels
             .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
@@ -107,7 +107,10 @@ open class ZenNIO {
         print("ZenNIO closed")
     }
     
-    open func tlsConfig(channel: Channel) {
+    open func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
+        let p = channel.eventLoop.makePromise(of: Void.self)
+        p.succeed(())
+        return p.futureResult
     }
 
     open func httpConfig(channel: Channel) -> EventLoopFuture<Void> {

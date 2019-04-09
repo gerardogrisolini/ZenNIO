@@ -43,6 +43,7 @@ let package = Package(
             name: "ZenNIOH2",
             dependencies: [
                 "ZenNIO",
+                "ZenNIOSSL",
                 "NIOHTTP2"
             ]
         ),

@@ -8,30 +8,7 @@
 import NIO
 import NIOHTTP1
 
-private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
-    var head = HTTPResponseHead(version: request.version, status: status, headers: headers)
-    let connectionHeaders: [String] = head.headers[canonicalForm: "connection"].map { $0.lowercased() }
-    
-    if !connectionHeaders.contains("keep-alive") && !connectionHeaders.contains("close") {
-        // the user hasn't pre-set either 'keep-alive' or 'close', so we might need to add headers
-        
-        switch (request.isKeepAlive, request.version.major, request.version.minor) {
-        case (true, 1, 0):
-            // HTTP/1.0 and the request has 'Connection: keep-alive', we should mirror that
-            head.headers.add(name: "Connection", value: "keep-alive")
-        case (false, 1, let n) where n >= 1:
-            // HTTP/1.1 (or treated as such) and the request has 'Connection: close', we should mirror that
-            head.headers.add(name: "Connection", value: "close")
-        default:
-            // we should match the default or are dealing with some HTTP that we don't support, let's leave as is
-            ()
-        }
-    }
-    return head
-}
-
-final public class ServerHandler: ChannelInboundHandler {
-    
+open class ServerHandler: ChannelInboundHandler {    
     public typealias InboundIn = HTTPServerRequestPart
     public typealias OutboundOut = HTTPServerResponsePart
     
@@ -56,13 +33,13 @@ final public class ServerHandler: ChannelInboundHandler {
         }
     }
     
-    private var buffer: ByteBuffer! = nil
+    public var buffer: ByteBuffer! = nil
     private var keepAlive = false
     private var state = State.idle
     private let htdocsPath: String
     
     private var savedBodyBytes: [UInt8] = []
-    private var infoSavedRequestHead: HTTPRequestHead?
+    public var infoSavedRequestHead: HTTPRequestHead?
     private var infoSavedBodyBytes: Int = 0
     
     private var continuousCount: Int = 0
@@ -169,7 +146,7 @@ final public class ServerHandler: ChannelInboundHandler {
         return promise.futureResult
     }
     
-    private func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
+    open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
         ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
         if let body = response.body {
@@ -180,23 +157,7 @@ final public class ServerHandler: ChannelInboundHandler {
         self.completeResponse(ctx, trailers: nil, promise: nil)
     }
     
-    //    private func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
-    //        ctx.channel.getOption(option: HTTP2StreamChannelOptions.streamID).then { (streamID) -> EventLoopFuture<Void> in
-    //            var head = HTTPResponseHead(version: .init(major: 2, minor: 0), status: response.status, headers: response.headers)
-    //            head.headers.add(name: "x-stream-id", value: String(streamID.networkStreamID!))
-    //            ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
-    //            if let body = response.body {
-    //                self.buffer = ctx.channel.allocator.buffer(capacity: body.count)
-    //                self.buffer.write(bytes: body)
-    //                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(self.buffer))), promise: nil)
-    //            }
-    //            return ctx.channel.writeAndFlush(self.wrapOutboundOut(HTTPServerResponsePart.end(nil)))
-    //        }.whenComplete {
-    //            ctx.close(promise: nil)
-    //        }
-    //    }
-    
-    fileprivate func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
+    private func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
         var path = self.htdocsPath + request.uri
         if let index = path.firstIndex(of: "?") {
             path = path[path.startIndex...path.index(before: index)].description
@@ -254,7 +215,7 @@ final public class ServerHandler: ChannelInboundHandler {
         }
     }
     
-    fileprivate func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
+    private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
         var head = HTTPResponseHead(version: request.version, status: status, headers: headers)
         switch (request.isKeepAlive, request.version.major, request.version.minor) {
         case (true, 1, 0):
