@@ -124,5 +124,6 @@ brew install nghttp2 libressl pkg-config
 #### Ubuntu 18.04
 
 ```
-apt-get install -y git curl libatomic1 libicu60 libxml2 libz-dev pkg-config clang netcat-openbsd lsof perl nghttp2 libnghttp2-dev
+apt install -y clang-3.8 libicu-dev libcurl4-nss-dev
+apt install -y git curl libatomic1 libicu60 libxml2 libz-dev pkg-config clang netcat-openbsd lsof perl nghttp2 libnghttp2-dev
 ```
