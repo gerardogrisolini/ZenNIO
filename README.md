@@ -1,6 +1,6 @@
 # ZenNIO
 
-<img src="https://github.com/gerardogrisolini/Webretail/blob/master/webroot/media/logo.png?raw=true" width="80" alt="Webretail - RMS" />
+<img src="https://github.com/gerardogrisolini/ZenRetail/blob/master/Assets/logo.png?raw=true" width="80" alt="ZenRetail - RMS" />
 
 HTTP Server for IoT
 
@@ -15,7 +15,7 @@ HTTP Server for IoT
 
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "1.3.1")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "2.0.0")
 ]
 ```
 
