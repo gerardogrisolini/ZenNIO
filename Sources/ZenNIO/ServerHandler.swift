@@ -176,8 +176,7 @@ open class ServerHandler: ChannelInboundHandler {
             var response = self.httpResponseHead(request: request, status: status)
             response.headers.add(name: "Content-Length", value: "0")
             ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-            self.state.responseComplete()
-            _ = ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
+            self.completeResponse(ctx, trailers: nil, promise: nil)
         }
         fileHandleAndRegion.whenSuccess { (file, region) in
             var responseStarted = false
