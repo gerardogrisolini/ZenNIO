@@ -143,23 +143,37 @@ open class ServerHandler: ChannelInboundHandler {
     }
     
     open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
-        let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
-        ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
-        if let body = response.body {
-            self.buffer = ctx.channel.allocator.buffer(capacity: body.count)
-            self.buffer.writeBytes(body)
-            ctx.write(self.wrapOutboundOut(.body(.byteBuffer(self.buffer))), promise: nil)
+        ctx.eventLoop.execute {
+            let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
+            ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
+            if let body = response.body {
+                self.buffer = ctx.channel.allocator.buffer(capacity: body.count)
+                self.buffer.writeBytes(body)
+                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(self.buffer))), promise: nil)
+            }
+            self.completeResponse(ctx, trailers: nil, promise: nil)
         }
-        self.completeResponse(ctx, trailers: nil, promise: nil)
     }
     
     private func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
+        func errorResponse(_ status: HTTPResponseStatus) {
+            var response = self.httpResponseHead(request: request, status: status)
+            //response.headers.add(name: "Content-Length", value: "0")
+            ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+            self.completeResponse(ctx, trailers: nil, promise: nil)
+        }
+        
+        guard let fileIO = self.fileIO else {
+            errorResponse(.notFound)
+            return
+        }
+        
         var path = self.htdocsPath + request.uri
         if let index = path.firstIndex(of: "?") {
             path = path[path.startIndex...path.index(before: index)].description
         }
         
-        let fileHandleAndRegion = self.fileIO!.openFile(path: path, eventLoop: ctx.eventLoop)
+        let fileHandleAndRegion = fileIO.openFile(path: path, eventLoop: ctx.eventLoop)
         fileHandleAndRegion.whenFailure {
             let status: HTTPResponseStatus
             switch $0 {
@@ -173,15 +187,12 @@ open class ServerHandler: ChannelInboundHandler {
                 print("\($0): \(type(of: $0)) error")
                 status = .badRequest
             }
-            var response = self.httpResponseHead(request: request, status: status)
-            response.headers.add(name: "Content-Length", value: "0")
-            ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-            self.completeResponse(ctx, trailers: nil, promise: nil)
+            errorResponse(status)
         }
         fileHandleAndRegion.whenSuccess { (file, region) in
             var responseStarted = false
-            let response = responseHead(request: request, fileRegion: region, contentType: path.contentType)
-            return self.fileIO!.readChunked(fileRegion: region,
+            let response = self.responseHead(request: request, fileRegion: region, contentType: path.contentType)
+            return fileIO.readChunked(fileRegion: region,
                                             chunkSize: 32 * 1024,
                                             allocator: ctx.channel.allocator,
                                             eventLoop: ctx.eventLoop) { buffer in
@@ -208,17 +219,17 @@ open class ServerHandler: ChannelInboundHandler {
                     }
                 }.whenComplete { (_: Result<Void, Error>) in
                     _ = try? file.close()
-            }
-        }
-        
-        func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
-            var response = httpResponseHead(request: request, status: .ok)
-            response.headers.add(name: "Content-Length", value: "\(region.endIndex)")
-            response.headers.add(name: "Content-Type", value: contentType)
-            return response
+                }
         }
     }
     
+    open func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
+        var response = httpResponseHead(request: request, status: .ok)
+        response.headers.add(name: "Content-Length", value: "\(region.endIndex)")
+        response.headers.add(name: "Content-Type", value: contentType)
+        return response
+    }
+
     private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
         var head = HTTPResponseHead(version: request.version, status: status, headers: headers)
         switch (request.isKeepAlive, request.version.major, request.version.minor) {

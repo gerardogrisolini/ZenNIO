@@ -119,19 +119,6 @@ protocol AuthenticationProtocol {
 }
 
 struct AuthenticationProvider : AuthenticationProtocol {
-    //    <link rel="preload" href="/assets/logo.png" as="image">
-    //    <link rel="preload" href="/assets/style.css" as="style">
-    //    <link rel="preload" href="/assets/scripts.js" as="script">
-    //    <script src="/assets/scripts.js?id=2"></script>
-    //    <script src="/assets/scripts.js?id=3"></script>
-    //    <script src="/assets/scripts.js?id=4" defer=""></script>
-    //    <script src="/assets/scripts.js?id=5" defer=""></script>
-    //    <script src="/assets/scripts.js?id=6" defer=""></script>
-    //    <script src="/assets/scripts.js?id=7" async=""></script>
-    //    <script src="/assets/scripts.js?id=8" async=""></script>
-    //    <script src="/assets/scripts.js?id=9" async=""></script>
-    //    <script src="/assets/scripts.js?id=10" async=""></script>
-    
     func html(ip: String) -> String {
         let content: String = """
         <!DOCTYPE html>
@@ -142,6 +129,9 @@ struct AuthenticationProvider : AuthenticationProtocol {
         <base href="/">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noindex">
+        <link rel="preload" href="/assets/logo.png" as="image">
+        <link rel="preload" href="/assets/style.css" as="style">
+        <link rel="preload" href="/assets/scripts.js" as="script">
         <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
         <link rel="stylesheet" href="/assets/style.css">
         <script src="/assets/scripts.js"></script>
