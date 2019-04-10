@@ -157,8 +157,7 @@ open class ServerHandler: ChannelInboundHandler {
     
     private func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
         func errorResponse(_ status: HTTPResponseStatus) {
-            var response = self.httpResponseHead(request: request, status: status)
-            //response.headers.add(name: "Content-Length", value: "0")
+            let response = self.httpResponseHead(request: request, status: status)
             ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
             self.completeResponse(ctx, trailers: nil, promise: nil)
         }
