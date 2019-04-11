@@ -65,6 +65,14 @@ public class Router {
     }
     
     func getRoute(request: inout HttpRequest) -> Route? {
+        guard request.head.method != .OPTIONS else {
+            return Route(filter: false, pattern: request.head.uri, regex: nil, handler: { (_, response) in
+                response.headers.add(name: "Access-Control-Max-Age", value: "86400")
+                response.headers.add(name: "Content-Type", value: "text/plain; charset=utf-8")
+                response.completed(.noContent)
+            }, params: [String : Array<String>.Index]())
+        }
+        
         let range = NSRange(location: 0, length: request.url.utf8.count)
         if let route = routes[request.head.method]?
             .first(where: {
@@ -95,7 +103,6 @@ public class Router {
         }
         
         let regex = RouteRegex.sharedInstance.buildRegex(fromPattern: uri)
-        //debugPrint(regex)
         var params = [String : Array<String>.Index]()
         if let parameters = regex.2 {
             let uris = uri.split(separator: "/")
@@ -110,4 +117,5 @@ public class Router {
         append(method: method, route: route)
     }
 }
+
 
