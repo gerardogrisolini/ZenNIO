@@ -41,7 +41,7 @@ open class ZenNIO {
     }
     
     deinit {
-        close()
+        stop()
     }
     
     public func addWebroot(path: String = "webroot") {
