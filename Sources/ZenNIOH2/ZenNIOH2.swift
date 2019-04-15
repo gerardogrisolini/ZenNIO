@@ -20,7 +20,7 @@ public class ZenNIOH2: ZenNIOSSL {
     public override func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
             return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                streamChannel.pipeline.addHandler(ServerHandlerH2(fileIO: self.fileIO, htdocsPath: self.htdocsPath))
+                    streamChannel.pipeline.addHandler(ServerHandlerH2(fileIO: self.fileIO, htdocsPath: self.htdocsPath))
                 }.flatMap { () -> EventLoopFuture<Void> in
                     streamChannel.pipeline.addHandler(ErrorHandler())
                 }

@@ -17,6 +17,7 @@ open class ZenNIO {
     public let eventLoopGroup: EventLoopGroup
     public var fileIO: NonBlockingFileIO? = nil
     private let threadPool: NIOThreadPool
+    private var channel: Channel?
     
     static var router = Router()
     static var sessions = HttpSession()
@@ -38,7 +39,11 @@ open class ZenNIO {
         self.port = port
         ZenNIO.router = router
     }
-        
+    
+    deinit {
+        close()
+    }
+    
     public func addWebroot(path: String = "webroot") {
         htdocsPath = path
     }
@@ -84,19 +89,23 @@ open class ZenNIO {
             .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 1)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
         
-        let channel = try { () -> Channel in
+        channel = try { () -> Channel in
             return try bootstrap.bind(host: host, port: port).wait()
             }()
         
-        guard let localAddress = channel.localAddress else {
+        guard let localAddress = channel!.localAddress else {
             fatalError("Address was unable to bind.")
         }
         
         print("ZenNIO started on \(localAddress) with \(numOfThreads) threads")
         
         // This will never unblock as we don't close the ServerChannel
-        try channel.closeFuture.wait()
-        
+        try channel!.closeFuture.wait()
+    }
+    
+    public func close() {
+        channel?.flush()
+        try? channel?.close().wait()
         print("ZenNIO closed")
     }
     
