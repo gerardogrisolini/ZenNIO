@@ -103,7 +103,7 @@ open class ZenNIO {
         try channel!.closeFuture.wait()
     }
     
-    public func close() {
+    public func stop() {
         channel?.flush()
         try? channel?.close().wait()
         print("ZenNIO closed")
