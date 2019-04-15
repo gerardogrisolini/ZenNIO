@@ -97,7 +97,7 @@ open class ZenNIO {
             fatalError("Address was unable to bind.")
         }
         
-        print("ZenNIO started on \(localAddress) with \(numOfThreads) threads")
+        print("☯️ ZenNIO started on \(localAddress) with \(numOfThreads) threads")
         
         // This will never unblock as we don't close the ServerChannel
         try channel!.closeFuture.wait()
@@ -106,7 +106,7 @@ open class ZenNIO {
     public func stop() {
         channel?.flush()
         try? channel?.close().wait()
-        print("ZenNIO closed")
+        print("☯️ ZenNIO stopped")
     }
     
     open func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
