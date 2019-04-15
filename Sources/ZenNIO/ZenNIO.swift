@@ -29,7 +29,7 @@ open class ZenNIO {
         port: Int = 8888,
         router: Router = Router(),
         numberOfThreads: Int = System.coreCount
-        ) {
+    ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
         threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
@@ -38,9 +38,7 @@ open class ZenNIO {
         self.port = port
         ZenNIO.router = router
     }
-    
-    public let cipherSuites = "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-CBC-SHA384:ECDHE-ECDSA-AES256-CBC-SHA:ECDHE-ECDSA-AES128-CBC-SHA256:ECDHE-ECDSA-AES128-CBC-SHA:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-CBC-SHA384:ECDHE-RSA-AES128-CBC-SHA256:ECDHE-RSA-AES128-CBC-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA"
-    
+        
     public func addWebroot(path: String = "webroot") {
         htdocsPath = path
     }

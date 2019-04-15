@@ -5,6 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "ZenNIO",
+    platforms: [
+        .macOS(.v10_14)
+    ],
     products: [
         .library(
             name: "ZenNIO",
@@ -47,7 +50,9 @@ let package = Package(
         ),
         .testTarget(
             name: "ZenNIOTests",
-            dependencies: ["ZenNIO", "ZenNIOSSL", "ZenNIOH2"])
-    ]
+            dependencies: ["ZenNIO", "ZenNIOSSL", "ZenNIOH2"]
+        )
+    ],
+    swiftLanguageVersions: [.v5]
 )
 
