@@ -106,6 +106,7 @@ open class ZenNIO {
     public func stop() {
         channel?.flush()
         try? channel?.close().wait()
+        print("")
         print("☯️  ZenNIO stopped")
     }
     
