@@ -5,6 +5,7 @@
 //  Created by Gerardo Grisolini on 28/02/2019.
 //
 
+import Foundation
 import NIO
 import NIOHTTP1
 
@@ -46,13 +47,16 @@ open class ServerHandler: ChannelInboundHandler {
     
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
     private var handlerFuture: EventLoopFuture<Void>?
-    private let fileIO: NonBlockingFileIO?
+//    private let fileIO: NonBlockingFileIO?
     
-    public init(fileIO: NonBlockingFileIO?, htdocsPath: String) {
+//    public init(fileIO: NonBlockingFileIO?, htdocsPath: String) {
+//        self.htdocsPath = htdocsPath
+//        self.fileIO = fileIO
+//    }
+    public init(htdocsPath: String) {
         self.htdocsPath = htdocsPath
-        self.fileIO = fileIO
     }
-    
+
     private func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
         self.state.responseComplete()
         
@@ -78,19 +82,18 @@ open class ServerHandler: ChannelInboundHandler {
             self.state.requestComplete()
             
             var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
-            savedBodyBytes.removeAll()
-            
-            guard let route = ZenNIO.router.getRoute(request: &request) else {
-                fileRequest(ctx: context, request: infoSavedRequestHead!)
-                return
-            }
-            
             request.clientIp = context.channel.remoteAddress!.description
             request.eventLoop = context.eventLoop
+            savedBodyBytes.removeAll()
             
-            processRequest(request: request, route: route)
-                .whenSuccess { response in
-                    self.processResponse(ctx: context, response: response)
+            let httpResponse: EventLoopFuture<HttpResponse>
+            if let route = ZenNIO.router.getRoute(request: &request) {
+                httpResponse = processRequest(request: request, route: route)
+            } else {
+                httpResponse = processFileRequest(request: request)
+            }
+            httpResponse.whenSuccess { response in
+                self.processResponse(ctx: context, response: response)
             }
         }
     }
@@ -135,6 +138,27 @@ open class ServerHandler: ChannelInboundHandler {
         return promise.futureResult
     }
     
+    private func processFileRequest(request: HttpRequest) -> EventLoopFuture<HttpResponse> {
+        let promise = request.eventLoop.makePromise(of: HttpResponse.self)
+        request.eventLoop.execute {
+            let response = HttpResponse(promise: promise)
+            
+            var path = self.htdocsPath + request.url
+            if let index = path.firstIndex(of: "?") {
+                path = path[path.startIndex...path.index(before: index)].description
+            }
+            
+            if let data = FileManager.default.contents(atPath: path) {
+                response.addHeader(.contentType, value: path.contentType)
+                response.send(data: data)
+                response.completed()
+            } else {
+                response.completed(.notFound)
+            }
+        }
+        return promise.futureResult
+    }
+
     open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         ctx.eventLoop.execute {
             let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
@@ -148,7 +172,8 @@ open class ServerHandler: ChannelInboundHandler {
         }
     }
     
-    private func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
+    /*
+    open func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
         func errorResponse(_ status: HTTPResponseStatus) {
             let response = self.httpResponseHead(request: request, status: status)
             ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
@@ -159,12 +184,12 @@ open class ServerHandler: ChannelInboundHandler {
             errorResponse(.notFound)
             return
         }
-        
+
         var path = self.htdocsPath + request.uri
         if let index = path.firstIndex(of: "?") {
             path = path[path.startIndex...path.index(before: index)].description
         }
-        
+
         let fileHandleAndRegion = fileIO.openFile(path: path, eventLoop: ctx.eventLoop)
         fileHandleAndRegion.whenFailure {
             let status: HTTPResponseStatus
@@ -188,29 +213,29 @@ open class ServerHandler: ChannelInboundHandler {
                                       chunkSize: 32 * 1024,
                                       allocator: ctx.channel.allocator,
                                       eventLoop: ctx.eventLoop) { buffer in
-                                        if !responseStarted {
-                                            responseStarted = true
-                                            ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                                        }
-                                        return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
-                }.flatMap { () -> EventLoopFuture<Void> in
-                    let p = ctx.eventLoop.makePromise(of: Void.self)
-                    self.completeResponse(ctx, trailers: nil, promise: p)
-                    return p.futureResult
-                }.flatMapError { error in
-                    if !responseStarted {
-                        let response = self.httpResponseHead(request: request, status: .ok)
-                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                        var buffer = ctx.channel.allocator.buffer(capacity: 100)
-                        buffer.writeString("fail: \(error)")
-                        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
-                        self.state.responseComplete()
-                        return ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
-                    } else {
-                        return ctx.close()
-                    }
-                }.whenComplete { (_: Result<Void, Error>) in
-                    _ = try? file.close()
+                if !responseStarted {
+                    responseStarted = true
+                    ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                }
+                return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
+            }.flatMap { () -> EventLoopFuture<Void> in
+                let p = ctx.eventLoop.makePromise(of: Void.self)
+                self.completeResponse(ctx, trailers: nil, promise: p)
+                return p.futureResult
+            }.flatMapError { error in
+                if !responseStarted {
+                    let response = self.httpResponseHead(request: request, status: .ok)
+                    ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                    var buffer = ctx.channel.allocator.buffer(capacity: 100)
+                    buffer.writeString("fail: \(error)")
+                    ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
+                    self.state.responseComplete()
+                    return ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
+                } else {
+                    return ctx.close()
+                }
+            }.whenComplete { (_: Result<Void, Error>) in
+                _ = try? file.close()
             }
         }
     }
@@ -221,6 +246,7 @@ open class ServerHandler: ChannelInboundHandler {
         response.headers.add(name: "Content-Type", value: contentType)
         return response
     }
+    */
     
     private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
         var head = HTTPResponseHead(version: request.version, status: status, headers: headers)

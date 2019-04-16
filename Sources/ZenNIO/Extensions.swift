@@ -63,6 +63,16 @@ extension String {
             return "application/vnd.ms-word"
         case "xls", "xlsx":
             return "application/vnd.ms-excel"
+        case "woff":
+            return "font/font-woff"
+        case "woff2":
+            return "font/font-woff2"
+        case "ttf":
+            return "font/ttf"
+        case "otf":
+            return "font/opentype"
+        case "eot":
+            return "application/vnd.ms-fontobject"
         default:
             return "application/octet-stream"
         }

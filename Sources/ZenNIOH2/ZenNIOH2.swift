@@ -20,7 +20,7 @@ public class ZenNIOH2: ZenNIOSSL {
     public override func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
             return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                    streamChannel.pipeline.addHandler(ServerHandlerH2(fileIO: self.fileIO, htdocsPath: self.htdocsPath))
+                    streamChannel.pipeline.addHandler(ServerHandlerH2(htdocsPath: self.htdocsPath))
                 }.flatMap { () -> EventLoopFuture<Void> in
                     streamChannel.pipeline.addHandler(ErrorHandler())
                 }
@@ -31,13 +31,6 @@ public class ZenNIOH2: ZenNIOSSL {
 }
 
 public class ServerHandlerH2: ServerHandler {
-    override public func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
-        var response = HTTPResponseHead(version: request.version, status: .ok)
-        response.headers.add(name: "content-length", value: "\(region.endIndex)")
-        response.headers.add(name: "content-type", value: contentType)
-        return response
-    }
-    
     override public func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         ctx.eventLoop.execute {
             ctx.channel.getOption(HTTP2StreamChannelOptions.streamID).flatMap { (streamID) -> EventLoopFuture<Void> in

@@ -194,7 +194,7 @@ final class ZenNIOTests: XCTestCase {
             }
         }
 
-        let server = ZenNIOH2(router: router)
+        let server = ZenNIO(router: router)
         
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> (String?) in
@@ -204,18 +204,18 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/client")
 
         // Webroot with static files (optional)
-        server.addWebroot(path: "/Users/gerardo/Projects/Zen/ZenRetail/webroot")
+        server.addWebroot()
         
         // CORS (optional)
         server.addCORS()
         
         // SSL (optional)
-        XCTAssertNoThrow(
-            try server.addSSL(
-                certFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/cert.pem",
-                keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/key.pem"
-            )
-        )
+//        XCTAssertNoThrow(
+//            try server.addSSL(
+//                certFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/cert.pem",
+//                keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/key.pem"
+//            )
+//        )
 
         XCTAssertNoThrow(try server.start())
     }
