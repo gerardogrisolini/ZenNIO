@@ -105,9 +105,10 @@ open class ZenNIO {
     
     public func stop() {
         channel?.flush()
-        try? channel?.close().wait()
         print("")
-        print("☯️  ZenNIO stopped")
+        channel?.close().whenComplete({ result in
+            print("☯️  ZenNIO stopped")
+        })
     }
     
     open func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
@@ -130,5 +131,3 @@ open class ZenNIO {
 //    Swift.print(object)
 //    #endif
 //}
-
-

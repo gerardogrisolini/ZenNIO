@@ -27,7 +27,9 @@ public class HttpResponse {
     
     public func send<T: Codable>(json: T) throws {
         addHeader(.contentType, value: "application/json; charset=utf-8")
-        let data = try JSONEncoder().encode(json)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(json)
         send(data: data)
     }
     
@@ -49,18 +51,19 @@ public class HttpResponse {
         self.status = status
         if status.code > 300 {
             let html = """
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-<html>
-<head><title>\(status.reasonPhrase)</title></head>
-<body>
-<p>\(headers[HttpHeader.server.rawValue].first!)</p>
-<h1>\(status.code) - \(status.reasonPhrase)</h1>
-</body>
-</html>
-"""
+            <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+            <html>
+            <head><title>\(status.reasonPhrase)</title></head>
+            <body>
+            <p>\(headers[HttpHeader.server.rawValue].first!)</p>
+            <h1>\(status.code) - \(status.reasonPhrase)</h1>
+            </body>
+            </html>
+            """
             send(html: html)
         }
         addHeader(.contentLength, value: "\(body?.count ?? 0)")
         promise?.succeed(self)
     }
 }
+

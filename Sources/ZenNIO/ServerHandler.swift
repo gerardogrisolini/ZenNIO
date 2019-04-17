@@ -133,6 +133,9 @@ open class ServerHandler: ChannelInboundHandler {
                 self.processCORS(request, response)
                 request.parseRequest()
                 route.handler(request, response)
+                if let session = request.session {
+                    ZenNIO.sessions.set(session: session)
+                }
             }
         }
         return promise.futureResult
@@ -179,7 +182,7 @@ open class ServerHandler: ChannelInboundHandler {
             ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
             self.completeResponse(ctx, trailers: nil, promise: nil)
         }
-        
+     
         guard let fileIO = self.fileIO else {
             errorResponse(.notFound)
             return
@@ -290,5 +293,4 @@ open class ServerHandler: ChannelInboundHandler {
         }
     }
 }
-
 
