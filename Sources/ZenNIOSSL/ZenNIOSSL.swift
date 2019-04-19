@@ -29,7 +29,6 @@ open class ZenNIOSSL: ZenNIO {
     }
     
     open override func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
-        let sslHandler = try! NIOSSLServerHandler(context: sslContext)
-        return channel.pipeline.addHandler(sslHandler)
+        return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext))
     }
 }
