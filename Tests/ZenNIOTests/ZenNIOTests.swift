@@ -171,7 +171,7 @@ final class ZenNIOTests: XCTestCase {
 
         router.get("/hello") { req, res in
             res.send(text: "Hello World!")
-            res.completed()
+            res.completed()            
         }
         
         router.get("/hello/:name") { req, res in
@@ -194,7 +194,7 @@ final class ZenNIOTests: XCTestCase {
             }
         }
 
-        let server = ZenNIO(router: router)
+        let server = ZenNIOH2(router: router)
         
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> (String?) in
@@ -210,12 +210,12 @@ final class ZenNIOTests: XCTestCase {
         server.addCORS()
         
         // SSL (optional)
-//        XCTAssertNoThrow(
-//            try server.addSSL(
-//                certFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/cert.pem",
-//                keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/key.pem"
-//            )
-//        )
+        XCTAssertNoThrow(
+            try server.addSSL(
+                certFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/cert.pem",
+                keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/key.pem"
+            )
+        )
 
         XCTAssertNoThrow(try server.start())
     }

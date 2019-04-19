@@ -7,6 +7,7 @@
 
 import NIO
 import NIOHTTP1
+import NIOHTTPCompression
 
 open class ZenNIO {
     public var httpProtocol: HttpProtocol = .v1
@@ -119,7 +120,10 @@ open class ZenNIO {
     
     open func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
-            channel.pipeline.addHandler(ServerHandler(htdocsPath: self.htdocsPath))
+            channel.pipeline.addHandlers([
+                HTTPResponseCompressor(initialByteBufferCapacity: 0),
+                ServerHandler(htdocsPath: self.htdocsPath)
+            ])
         }
     }
 }

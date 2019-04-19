@@ -8,6 +8,7 @@
 import Foundation
 import NIO
 import NIOHTTP1
+import CNIOExtrasZlib
 
 open class ServerHandler: ChannelInboundHandler {
     public typealias InboundIn = HTTPServerRequestPart
@@ -34,7 +35,6 @@ open class ServerHandler: ChannelInboundHandler {
         }
     }
     
-    public var buffer: ByteBuffer! = nil
     private var keepAlive = false
     private var state = State.idle
     private let htdocsPath: String
@@ -88,9 +88,9 @@ open class ServerHandler: ChannelInboundHandler {
             
             let httpResponse: EventLoopFuture<HttpResponse>
             if let route = ZenNIO.router.getRoute(request: &request) {
-                httpResponse = processRequest(request: request, route: route)
+                httpResponse = processRequest(ctx: context, request: request, route: route)
             } else {
-                httpResponse = processFileRequest(request: request)
+                httpResponse = processFileRequest(ctx: context, request: request)
             }
             httpResponse.whenSuccess { response in
                 self.processResponse(ctx: context, response: response)
@@ -123,10 +123,10 @@ open class ServerHandler: ChannelInboundHandler {
         return true
     }
     
-    private func processRequest(request: HttpRequest, route: Route) -> EventLoopFuture<HttpResponse> {
+    private func processRequest(ctx: ChannelHandlerContext, request: HttpRequest, route: Route) -> EventLoopFuture<HttpResponse> {
         let promise = request.eventLoop.makePromise(of: HttpResponse.self)
         request.eventLoop.execute {
-            let response = HttpResponse(promise: promise)
+            let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0), promise: promise)
             if ZenNIO.session && !self.processSession(request, response, route.filter) {
                 response.completed(.unauthorized)
             } else {
@@ -141,10 +141,10 @@ open class ServerHandler: ChannelInboundHandler {
         return promise.futureResult
     }
     
-    private func processFileRequest(request: HttpRequest) -> EventLoopFuture<HttpResponse> {
+    private func processFileRequest(ctx: ChannelHandlerContext, request: HttpRequest) -> EventLoopFuture<HttpResponse> {
         let promise = request.eventLoop.makePromise(of: HttpResponse.self)
         request.eventLoop.execute {
-            let response = HttpResponse(promise: promise)
+            let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0), promise: promise)
             
             var path = self.htdocsPath + request.url
             if let index = path.firstIndex(of: "?") {
@@ -163,15 +163,47 @@ open class ServerHandler: ChannelInboundHandler {
     }
 
     open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
-        ctx.eventLoop.execute {
-            let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
-            ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
-            if let body = response.body {
-                self.buffer = ctx.channel.allocator.buffer(capacity: body.count)
-                self.buffer.writeBytes(body)
-                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(self.buffer))), promise: nil)
+        let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
+        ctx.write(self.wrapOutboundOut(.head(head)), promise: nil)
+        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
+        self.completeResponse(ctx, trailers: nil, promise: nil)
+    }
+    
+    private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
+        var head = HTTPResponseHead(version: request.version, status: status, headers: headers)
+        switch (request.isKeepAlive, request.version.major, request.version.minor) {
+        case (true, 1, 0):
+            // HTTP/1.0 and the request has 'Connection: keep-alive', we should mirror that
+            head.headers.add(name: "Connection", value: "keep-alive")
+        case (false, 1, let n) where n >= 1:
+            // HTTP/1.1 (or treated as such) and the request has 'Connection: close', we should mirror that
+            head.headers.add(name: "Connection", value: "close")
+        default:
+            // we should match the default or are dealing with some HTTP that we don't support, let's leave as is
+            ()
+        }
+        return head
+    }
+    
+    public func channelReadComplete(context: ChannelHandlerContext) {
+        context.flush()
+    }
+    
+    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+        switch event {
+        case let evt as ChannelEvent where evt == ChannelEvent.inputClosed:
+            // The remote peer half-closed the channel. At this time, any
+            // outstanding response will now get the channel closed, and
+            // if we are idle or waiting for a request body to finish we
+            // will close the channel immediately.
+            switch self.state {
+            case .idle, .waitingForRequestBody:
+                context.close(promise: nil)
+            case .sendingResponse:
+                self.keepAlive = false
             }
-            self.completeResponse(ctx, trailers: nil, promise: nil)
+        default:
+            context.fireUserInboundEventTriggered(event)
         }
     }
     
@@ -250,49 +282,4 @@ open class ServerHandler: ChannelInboundHandler {
         return response
     }
     */
-    
-    private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
-        var head = HTTPResponseHead(version: request.version, status: status, headers: headers)
-        switch (request.isKeepAlive, request.version.major, request.version.minor) {
-        case (true, 1, 0):
-            // HTTP/1.0 and the request has 'Connection: keep-alive', we should mirror that
-            head.headers.add(name: "Connection", value: "keep-alive")
-        case (false, 1, let n) where n >= 1:
-            // HTTP/1.1 (or treated as such) and the request has 'Connection: close', we should mirror that
-            head.headers.add(name: "Connection", value: "close")
-        default:
-            // we should match the default or are dealing with some HTTP that we don't support, let's leave as is
-            ()
-        }
-        return head
-    }
-    
-    public func channelReadComplete(context: ChannelHandlerContext) {
-        context.flush()
-    }
-    
-    public func handlerAdded(context: ChannelHandlerContext) {
-        self.buffer = context.channel.allocator.buffer(capacity: 0)
-    }
-    
-    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
-        switch event {
-        case let evt as ChannelEvent where evt == ChannelEvent.inputClosed:
-            // The remote peer half-closed the channel. At this time, any
-            // outstanding response will now get the channel closed, and
-            // if we are idle or waiting for a request body to finish we
-            // will close the channel immediately.
-            switch self.state {
-            case .idle, .waitingForRequestBody:
-                context.close(promise: nil)
-            case .sendingResponse:
-                self.keepAlive = false
-            }
-        default:
-            context.fireUserInboundEventTriggered(event)
-        }
-    }
 }
-
-
-

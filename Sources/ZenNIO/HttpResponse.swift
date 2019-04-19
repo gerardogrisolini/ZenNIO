@@ -8,14 +8,16 @@
 import Foundation
 import NIO
 import NIOHTTP1
+import NIOHTTPCompression
 
 public class HttpResponse {
     public var status: HTTPResponseStatus = .ok
     public var headers = HTTPHeaders()
-    public var body: Data? = nil
+    public var body: ByteBuffer
     let promise: EventLoopPromise<HttpResponse>?
-    
-    init(promise: EventLoopPromise<HttpResponse>? = nil) {
+
+    init(body: ByteBuffer, promise: EventLoopPromise<HttpResponse>? = nil) {
+        self.body = body
         self.promise = promise
         addHeader(.server, value: "ZenNIO")
         addHeader(.date, value: Date().rfc5322Date)
@@ -34,7 +36,7 @@ public class HttpResponse {
     }
     
     public func send(data: Data) {
-        body = data
+        body.writeBytes(data)
     }
     
     public func send(text: String) {
@@ -51,18 +53,19 @@ public class HttpResponse {
         self.status = status
         if status.code > 300 {
             let html = """
-            <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-            <html>
-            <head><title>\(status.reasonPhrase)</title></head>
-            <body>
-            <p>\(headers[HttpHeader.server.rawValue].first!)</p>
-            <h1>\(status.code) - \(status.reasonPhrase)</h1>
-            </body>
-            </html>
-            """
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html>
+<head><title>\(status.reasonPhrase)</title></head>
+<body>
+<p>\(headers[HttpHeader.server.rawValue].first!)</p>
+<h1>\(status.code) - \(status.reasonPhrase)</h1>
+</body>
+</html>
+"""
             send(html: html)
         }
-        addHeader(.contentLength, value: "\(body?.count ?? 0)")
+        
+        addHeader(.contentLength, value: "\(body.readableBytes)")
         promise?.succeed(self)
     }
 }

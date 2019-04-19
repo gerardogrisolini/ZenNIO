@@ -39,13 +39,9 @@ public class ServerHandlerH2: ServerHandler {
                 for header in response.headers {
                     head.headers.add(name: header.name.lowercased(), value: header.value)
                 }
-                ctx.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
-                if let body = response.body {
-                    self.buffer = ctx.channel.allocator.buffer(capacity: body.count)
-                    self.buffer.writeBytes(body)
-                    ctx.channel.write(self.wrapOutboundOut(HTTPServerResponsePart.body(.byteBuffer(self.buffer))), promise: nil)
-                }
-                return ctx.channel.writeAndFlush(self.wrapOutboundOut(HTTPServerResponsePart.end(nil)))
+                ctx.channel.write(self.wrapOutboundOut(.head(head)), promise: nil)
+                ctx.channel.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
+                return ctx.channel.writeAndFlush(self.wrapOutboundOut(.end(nil)))
             }.whenComplete { _ in
                 ctx.close(promise: nil)
             }
