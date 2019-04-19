@@ -70,6 +70,7 @@ class Authentication {
                     var session = ZenNIO.sessions.new(id: request.session!.id, token: token)
                     session.uniqueID = uniqueID
                     ZenNIO.sessions.set(session: session)
+                    request.session = session
                     response.addHeader(.setCookie, value: "token=\(token.bearer)")
                     try response.send(json: token)
                     response.completed()
@@ -519,6 +520,7 @@ input[type=text]:placeholder, input[type=password]:placeholder {
         return Data(base64Encoded: content, options: .init(rawValue: 0))!
     }
 }
+
 
 
 
