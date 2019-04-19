@@ -32,7 +32,7 @@ let package = Package(
                 "NIO",
                 "NIOConcurrencyHelpers",
                 "NIOHTTP1",
-                "CNIOExtrasZlib"
+                "NIOHTTPCompression"
             ]
         ),
         .target(
