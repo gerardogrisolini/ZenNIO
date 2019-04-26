@@ -32,7 +32,7 @@ public class ZenNIOH2: ZenNIOSSL {
 
 public class ServerHandlerH2: ServerHandler {
     override public func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
-        ctx.eventLoop.execute {
+        //ctx.eventLoop.execute {
             ctx.channel.getOption(HTTP2StreamChannelOptions.streamID).flatMap { (streamID) -> EventLoopFuture<Void> in
                 var head = HTTPResponseHead(version: .init(major: 2, minor: 0), status: response.status)
                 head.headers.add(name: "x-stream-id", value: String(Int(streamID)))
@@ -46,7 +46,7 @@ public class ServerHandlerH2: ServerHandler {
             }.whenComplete { _ in
                 ctx.close(promise: nil)
             }
-        }
+        //}
     }
 }
 
