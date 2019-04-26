@@ -41,6 +41,7 @@ public class ServerHandlerH2: ServerHandler {
                 }
                 ctx.channel.write(self.wrapOutboundOut(.head(head)), promise: nil)
                 ctx.channel.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
+                self.state.responseComplete()
                 return ctx.channel.writeAndFlush(self.wrapOutboundOut(.end(nil)))
             }.whenComplete { _ in
                 ctx.close(promise: nil)

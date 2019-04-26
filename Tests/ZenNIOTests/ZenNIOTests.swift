@@ -194,7 +194,7 @@ final class ZenNIOTests: XCTestCase {
             }
         }
 
-        let server = ZenNIOSSL(router: router)
+        let server = ZenNIOH2(router: router)
         
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> (String?) in

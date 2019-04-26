@@ -10,43 +10,42 @@ import NIO
 import NIOHTTP1
 import CNIOExtrasZlib
 
+public enum State {
+    case idle
+    case waitingForRequestBody
+    case sendingResponse
+    
+    mutating func requestReceived() {
+        precondition(self == .idle, "Invalid state for request received: \(self)")
+        self = .waitingForRequestBody
+    }
+    
+    mutating func requestComplete() {
+        precondition(self == .waitingForRequestBody, "Invalid state for request complete: \(self)")
+        self = .sendingResponse
+    }
+    
+    public mutating func responseComplete() {
+        precondition(self == .sendingResponse, "Invalid state for response complete: \(self)")
+        self = .idle
+    }
+}
+
 open class ServerHandler: ChannelInboundHandler {
     public typealias InboundIn = HTTPServerRequestPart
     public typealias OutboundOut = HTTPServerResponsePart
     
-    private enum State {
-        case idle
-        case waitingForRequestBody
-        case sendingResponse
-        
-        mutating func requestReceived() {
-            precondition(self == .idle, "Invalid state for request received: \(self)")
-            self = .waitingForRequestBody
-        }
-        
-        mutating func requestComplete() {
-            precondition(self == .waitingForRequestBody, "Invalid state for request complete: \(self)")
-            self = .sendingResponse
-        }
-        
-        mutating func responseComplete() {
-            precondition(self == .sendingResponse, "Invalid state for response complete: \(self)")
-            self = .idle
-        }
-    }
-    
-    private var keepAlive = false
-    private var state = State.idle
+    public var keepAlive = false
+    public var state = State.idle
     private let htdocsPath: String
     
     private var savedBodyBytes: [UInt8] = []
     public var infoSavedRequestHead: HTTPRequestHead?
-    private var infoSavedBodyBytes: Int = 0
+//    private var infoSavedBodyBytes: Int = 0
     
-    private var continuousCount: Int = 0
-    
+//    private var continuousCount: Int = 0
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
-    private var handlerFuture: EventLoopFuture<Void>?
+//    private var handlerFuture: EventLoopFuture<Void>?
 //    private let fileIO: NonBlockingFileIO?
     
 //    public init(fileIO: NonBlockingFileIO?, htdocsPath: String) {
@@ -64,8 +63,6 @@ open class ServerHandler: ChannelInboundHandler {
         if !self.keepAlive {
             promise!.futureResult.whenComplete { (_: Result<Void, Error>) in context.close(promise: nil) }
         }
-        self.handler = nil
-        
         context.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
     }
     
@@ -84,7 +81,7 @@ open class ServerHandler: ChannelInboundHandler {
             var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
             request.clientIp = context.channel.remoteAddress!.description
             request.eventLoop = context.eventLoop
-            savedBodyBytes.removeAll()
+            //savedBodyBytes.removeAll()
             
             let httpResponse: EventLoopFuture<HttpResponse>
             if let route = ZenNIO.router.getRoute(request: &request) {
