@@ -52,14 +52,14 @@ open class ServerHandler: ChannelInboundHandler {
         self.htdocsPath = htdocsPath
     }
 
-    private func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
+    public func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) ->  EventLoopFuture<Void> {
         self.state.responseComplete()
         
         let promise = self.keepAlive ? promise : (promise ?? context.eventLoop.makePromise())
         if !self.keepAlive {
             promise!.futureResult.whenComplete { (_: Result<Void, Error>) in context.close(promise: nil) }
         }
-        context.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
+        return context.writeAndFlush(self.wrapOutboundOut(.end(trailers)))
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
@@ -158,7 +158,6 @@ open class ServerHandler: ChannelInboundHandler {
     open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
         ctx.write(self.wrapOutboundOut(.head(head)), promise: nil)
-
         ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
 //        let lenght = 32 * 1024
 //        let count = response.body.readableBytes
@@ -170,8 +169,7 @@ open class ServerHandler: ChannelInboundHandler {
 //            }
 //            index += end
 //        }
-
-        self.completeResponse(ctx, trailers: nil, promise: nil)
+        _ = self.completeResponse(ctx, trailers: nil, promise: nil)
     }
     
     private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {

@@ -40,7 +40,6 @@ public class ServerHandlerH2: ServerHandler {
                     head.headers.add(name: header.name.lowercased(), value: header.value)
                 }
                 ctx.channel.write(self.wrapOutboundOut(.head(head)), promise: nil)
-                
                 ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
 //                let lenght = 32 * 1024
 //                let count = response.body.readableBytes
@@ -52,9 +51,7 @@ public class ServerHandlerH2: ServerHandler {
 //                    }
 //                    index += end
 //                }
-                self.state.responseComplete()
-                
-                return ctx.channel.writeAndFlush(self.wrapOutboundOut(.end(nil)))
+                return self.completeResponse(ctx, trailers: nil, promise: nil)
             }.whenComplete { _ in
                 ctx.close(promise: nil)
             }
