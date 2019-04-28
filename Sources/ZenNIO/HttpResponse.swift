@@ -36,6 +36,7 @@ public class HttpResponse {
     }
     
     public func send(data: Data) {
+        body.reserveCapacity(data.count)
         body.writeBytes(data)
     }
     

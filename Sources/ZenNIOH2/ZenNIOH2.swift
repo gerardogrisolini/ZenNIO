@@ -26,13 +26,13 @@ public class ZenNIOH2: ZenNIOSSL {
                 }
             }.flatMap { (_: HTTP2StreamMultiplexer) in
                 return channel.pipeline.addHandler(ErrorHandler())
-        }
+            }
     }
 }
 
 public class ServerHandlerH2: ServerHandler {
     override public func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
-        //ctx.eventLoop.execute {
+        ctx.eventLoop.execute {
             ctx.channel.getOption(HTTP2StreamChannelOptions.streamID).flatMap { (streamID) -> EventLoopFuture<Void> in
                 var head = HTTPResponseHead(version: .init(major: 2, minor: 0), status: response.status)
                 head.headers.add(name: "x-stream-id", value: String(Int(streamID)))
@@ -40,13 +40,24 @@ public class ServerHandlerH2: ServerHandler {
                     head.headers.add(name: header.name.lowercased(), value: header.value)
                 }
                 ctx.channel.write(self.wrapOutboundOut(.head(head)), promise: nil)
-                ctx.channel.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
+                
+                let lenght = 32 * 1024
+                let count = response.body.readableBytes
+                var index = 0
+                while index < count {
+                    let end = index + lenght > count ? count - index : lenght
+                    if let bytes = response.body.getSlice(at: index, length: end) {
+                        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(bytes))), promise: nil)
+                    }
+                    index += end
+                }
                 self.state.responseComplete()
+                
                 return ctx.channel.writeAndFlush(self.wrapOutboundOut(.end(nil)))
             }.whenComplete { _ in
                 ctx.close(promise: nil)
             }
-        //}
+        }
     }
 }
 

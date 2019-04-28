@@ -41,11 +41,7 @@ open class ServerHandler: ChannelInboundHandler {
     
     private var savedBodyBytes: [UInt8] = []
     public var infoSavedRequestHead: HTTPRequestHead?
-//    private var infoSavedBodyBytes: Int = 0
-    
-//    private var continuousCount: Int = 0
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
-//    private var handlerFuture: EventLoopFuture<Void>?
 //    private let fileIO: NonBlockingFileIO?
     
 //    public init(fileIO: NonBlockingFileIO?, htdocsPath: String) {
@@ -162,7 +158,19 @@ open class ServerHandler: ChannelInboundHandler {
     open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
         ctx.write(self.wrapOutboundOut(.head(head)), promise: nil)
-        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
+
+        let lenght = 32 * 1024
+        let count = response.body.readableBytes
+        var index = 0
+        while index < count {
+            let end = index + lenght > count ? count - index : lenght
+            if let bytes = response.body.getSlice(at: index, length: end) {
+                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(bytes))), promise: nil)
+            }
+            index += end
+        }
+        self.state.responseComplete()
+
         self.completeResponse(ctx, trailers: nil, promise: nil)
     }
     
