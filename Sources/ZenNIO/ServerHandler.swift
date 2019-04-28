@@ -59,7 +59,7 @@ open class ServerHandler: ChannelInboundHandler {
         if !self.keepAlive {
             promise!.futureResult.whenComplete { (_: Result<Void, Error>) in context.close(promise: nil) }
         }
-        context.writeAndFlush(self.wrapOutboundOut(.end(trailers)))
+        context.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
