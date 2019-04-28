@@ -41,16 +41,17 @@ public class ServerHandlerH2: ServerHandler {
                 }
                 ctx.channel.write(self.wrapOutboundOut(.head(head)), promise: nil)
                 
-                let lenght = 32 * 1024
-                let count = response.body.readableBytes
-                var index = 0
-                while index < count {
-                    let end = index + lenght > count ? count - index : lenght
-                    if let bytes = response.body.getSlice(at: index, length: end) {
-                        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(bytes))), promise: nil)
-                    }
-                    index += end
-                }
+                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
+//                let lenght = 32 * 1024
+//                let count = response.body.readableBytes
+//                var index = 0
+//                while index < count {
+//                    let end = index + lenght > count ? count - index : lenght
+//                    if let bytes = response.body.getSlice(at: index, length: end) {
+//                        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(bytes))), promise: nil)
+//                    }
+//                    index += end
+//                }
                 self.state.responseComplete()
                 
                 return ctx.channel.writeAndFlush(self.wrapOutboundOut(.end(nil)))

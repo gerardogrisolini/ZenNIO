@@ -159,17 +159,17 @@ open class ServerHandler: ChannelInboundHandler {
         let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
         ctx.write(self.wrapOutboundOut(.head(head)), promise: nil)
 
-        let lenght = 32 * 1024
-        let count = response.body.readableBytes
-        var index = 0
-        while index < count {
-            let end = index + lenght > count ? count - index : lenght
-            if let bytes = response.body.getSlice(at: index, length: end) {
-                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(bytes))), promise: nil)
-            }
-            index += end
-        }
-        self.state.responseComplete()
+        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
+//        let lenght = 32 * 1024
+//        let count = response.body.readableBytes
+//        var index = 0
+//        while index < count {
+//            let end = index + lenght > count ? count - index : lenght
+//            if let bytes = response.body.getSlice(at: index, length: end) {
+//                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(bytes))), promise: nil)
+//            }
+//            index += end
+//        }
 
         self.completeResponse(ctx, trailers: nil, promise: nil)
     }
