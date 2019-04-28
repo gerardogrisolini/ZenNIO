@@ -52,14 +52,14 @@ open class ServerHandler: ChannelInboundHandler {
         self.htdocsPath = htdocsPath
     }
 
-    public func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) ->  EventLoopFuture<Void> {
+    private func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
         self.state.responseComplete()
         
         let promise = self.keepAlive ? promise : (promise ?? context.eventLoop.makePromise())
         if !self.keepAlive {
             promise!.futureResult.whenComplete { (_: Result<Void, Error>) in context.close(promise: nil) }
         }
-        return context.writeAndFlush(self.wrapOutboundOut(.end(trailers)))
+        context.writeAndFlush(self.wrapOutboundOut(.end(trailers)))
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
@@ -169,7 +169,7 @@ open class ServerHandler: ChannelInboundHandler {
 //            }
 //            index += end
 //        }
-        _ = self.completeResponse(ctx, trailers: nil, promise: nil)
+        self.completeResponse(ctx, trailers: nil, promise: nil)
     }
     
     private func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {

@@ -51,7 +51,8 @@ public class ServerHandlerH2: ServerHandler {
 //                    }
 //                    index += end
 //                }
-                return self.completeResponse(ctx, trailers: nil, promise: nil)
+                self.state.responseComplete()
+                return ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
             }.whenComplete { _ in
                 ctx.close(promise: nil)
             }
