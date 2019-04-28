@@ -204,7 +204,7 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/client")
 
         // Webroot with static files (optional)
-        server.addWebroot(path: "/Users/gerardo/Projects/Zen/ZenRetail/webroot")
+        server.addWebroot(path: "/Users/gerardo/Projects/Zen/ZenRetail/webroot/media")
         
         // CORS (optional)
         server.addCORS()
