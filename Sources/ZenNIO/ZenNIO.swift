@@ -16,12 +16,12 @@ open class ZenNIO {
     public var htdocsPath: String = ""
     public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
-//    public var fileIO: NonBlockingFileIO? = nil
-//    private let threadPool: NIOThreadPool
+    //    public var fileIO: NonBlockingFileIO? = nil
+    //    private let threadPool: NIOThreadPool
     private var channel: Channel?
     
     static var router = Router()
-    static var sessions = HttpSession()
+    public static var sessions = HttpSession()
     static var cors = false
     static var session = false
     
@@ -31,10 +31,10 @@ open class ZenNIO {
         port: Int = 8888,
         router: Router = Router(),
         numberOfThreads: Int = System.coreCount
-    ) {
+        ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
-//        threadPool = NIOThreadPool(numberOfThreads: 2)
+        //        threadPool = NIOThreadPool(numberOfThreads: 2)
         
         self.host = host
         self.port = port
@@ -65,14 +65,14 @@ open class ZenNIO {
     
     public func start() throws {
         defer {
-//            try! threadPool.syncShutdownGracefully()
+            //            try! threadPool.syncShutdownGracefully()
             try! eventLoopGroup.syncShutdownGracefully()
         }
         
-//        if !htdocsPath.isEmpty {
-//            threadPool.start()
-//            fileIO = NonBlockingFileIO(threadPool: threadPool)
-//        }
+        //        if !htdocsPath.isEmpty {
+        //            threadPool.start()
+        //            fileIO = NonBlockingFileIO(threadPool: threadPool)
+        //        }
         
         let bootstrap = ServerBootstrap(group: eventLoopGroup)
             // Specify backlog and enable SO_REUSEADDR for the server itself
@@ -123,7 +123,7 @@ open class ZenNIO {
             channel.pipeline.addHandlers([
                 HTTPResponseCompressor(initialByteBufferCapacity: 0),
                 ServerHandler(htdocsPath: self.htdocsPath)
-            ])
+                ])
         }
     }
 }
@@ -135,3 +135,4 @@ open class ZenNIO {
 //    Swift.print(object)
 //    #endif
 //}
+

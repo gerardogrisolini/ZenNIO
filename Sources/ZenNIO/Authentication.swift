@@ -65,14 +65,9 @@ class Authentication {
                 
                 let account = try JSONDecoder().decode(Account.self, from: data)
                 if let uniqueID = self.handler(account.username, account.password) {
-                    let data = Date().timeIntervalSinceNow.description.data(using: .utf8)!
-                    let token = Token(bearer: data.base64EncodedString())
-                    var session = ZenNIO.sessions.new(id: request.session!.id, token: token)
-                    session.uniqueID = uniqueID
-                    ZenNIO.sessions.set(session: session)
+                    let session = ZenNIO.sessions.new(id: request.session!.id, uniqueID: uniqueID)
                     request.session = session
-                    response.addHeader(.setCookie, value: "token=\(token.bearer)")
-                    try response.send(json: token)
+                    try response.send(json: session.token!)
                     response.completed()
                 } else {
                     response.completed(.unauthorized)
@@ -520,6 +515,7 @@ input[type=text]:placeholder, input[type=password]:placeholder {
         return Data(base64Encoded: content, options: .init(rawValue: 0))!
     }
 }
+
 
 
 

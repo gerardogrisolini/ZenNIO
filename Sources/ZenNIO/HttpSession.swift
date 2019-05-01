@@ -7,20 +7,22 @@
 
 import Foundation
 
-struct HttpSession {
+public struct HttpSession {
     
     private var sessions = [Session]()
     
-    mutating func new(id: String = "", token: Token? = nil) -> Session {
+    public mutating func new(id: String = "", uniqueID: String? = nil) -> Session {
         var base64 = id
         if id.isEmpty {
-            let date = Date()
-            let data = "\(date.timeIntervalSinceNow)-\(date.timeIntervalSinceReferenceDate)".data(using: .utf8)!
-            base64 = data.base64EncodedString()
+            base64 = UUID().uuidString.data(using: .utf8)!.base64EncodedString()
         }
         
         var session = Session(id: base64)
-        session.token = token
+        base64 = UUID().uuidString.data(using: .utf8)!.base64EncodedString()
+        session.token = Token(bearer: base64)
+        session.uniqueID = uniqueID
+        
+        sessions.append(session)
         
         return session
     }
@@ -47,13 +49,8 @@ struct HttpSession {
                 let id = item.replacingOccurrences(of: "sessionId=", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
                 if let index = sessions.firstIndex(where: { $0.id == id }) {
                     return sessions[index]
-                } else {
-                    if let token = items.first(where: { $0.contains("token") }) {
-                        let bearer = token.replacingOccurrences(of: "token=", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-                        return new(id: id, token: Token(bearer: bearer))
-                    }
-                    return new(id: id, token: nil)
                 }
+                return new(id: id, uniqueID: nil)
             }
         }
         
@@ -66,4 +63,5 @@ struct HttpSession {
         }
     }
 }
+
 
