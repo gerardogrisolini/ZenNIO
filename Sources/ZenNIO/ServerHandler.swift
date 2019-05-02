@@ -69,6 +69,7 @@ open class ServerHandler: ChannelInboundHandler {
             self.infoSavedRequestHead = request
             self.keepAlive = request.isKeepAlive
             self.state.requestReceived()
+            savedBodyBytes.removeAll()
         case .body(buffer: let buf):
             self.savedBodyBytes.append(contentsOf: buf.getBytes(at: 0, length: buf.readableBytes)!)
         case .end:
@@ -77,7 +78,6 @@ open class ServerHandler: ChannelInboundHandler {
             var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
             request.clientIp = context.channel.remoteAddress!.description
             request.eventLoop = context.eventLoop
-            //savedBodyBytes.removeAll()
             
             let httpResponse: EventLoopFuture<HttpResponse>
             if let route = ZenNIO.router.getRoute(request: &request) {
