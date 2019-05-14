@@ -10,7 +10,7 @@ import NIOHTTP1
 import NIOHTTP2
 import ZenNIO
 import ZenNIOSSL
-//import NIOHTTPCompression
+import NIOHTTPCompression
 
 public class ZenNIOH2: ZenNIOSSL {
     public override init(host: String = "::1", port: Int = 8888, router: Router, numberOfThreads: Int = System.coreCount) {
@@ -21,11 +21,11 @@ public class ZenNIOH2: ZenNIOSSL {
     public override func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
             return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-//                streamChannel.pipeline.addHandlers([
-//                    HTTPResponseCompressor(initialByteBufferCapacity: 0),
-//                    ServerHandlerH2(fileIO: self.fileIO, htdocsPath: self.htdocsPath)
-//                ])
-                streamChannel.pipeline.addHandler(ServerHandlerH2(fileIO: self.fileIO, htdocsPath: self.htdocsPath))
+                streamChannel.pipeline.addHandlers([
+                    HTTP2ResponseCompressor(initialByteBufferCapacity: 0),
+                    ServerHandlerH2(fileIO: self.fileIO, htdocsPath: self.htdocsPath)
+                ])
+                //streamChannel.pipeline.addHandler(ServerHandlerH2(fileIO: self.fileIO, htdocsPath: self.htdocsPath))
                 }.flatMap { () -> EventLoopFuture<Void> in
                     streamChannel.pipeline.addHandler(ErrorHandler())
             }
