@@ -17,25 +17,33 @@ public class ZenNIOH2: ZenNIOSSL {
         super.init(host: host, port: port, router: router, numberOfThreads: numberOfThreads)
         self.httpProtocol = .v2
     }
-
+    
     public override func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
             return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
 //                streamChannel.pipeline.addHandlers([
 //                    HTTPResponseCompressor(initialByteBufferCapacity: 0),
-//                    ServerHandlerH2(htdocsPath: self.htdocsPath)
+//                    ServerHandlerH2(fileIO: self.fileIO, htdocsPath: self.htdocsPath)
 //                ])
-                streamChannel.pipeline.addHandler(ServerHandlerH2(htdocsPath: self.htdocsPath))
-            }.flatMap { () -> EventLoopFuture<Void> in
-                streamChannel.pipeline.addHandler(ErrorHandler())
+                streamChannel.pipeline.addHandler(ServerHandlerH2(fileIO: self.fileIO, htdocsPath: self.htdocsPath))
+                }.flatMap { () -> EventLoopFuture<Void> in
+                    streamChannel.pipeline.addHandler(ErrorHandler())
             }
-        }.flatMap { (_: HTTP2StreamMultiplexer) in
-            return channel.pipeline.addHandler(ErrorHandler())
+            }.flatMap { (_: HTTP2StreamMultiplexer) in
+                return channel.pipeline.addHandler(ErrorHandler())
         }
     }
 }
 
 public class ServerHandlerH2: ServerHandler {
+    
+    override public func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
+        var response = HTTPResponseHead(version: .init(major: 2, minor: 0), status: .ok)
+        response.headers.add(name: "content-length", value: "\(region.endIndex)")
+        response.headers.add(name: "content-type", value: contentType)
+        return response
+    }
+    
     override public func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         ctx.eventLoop.execute {
             ctx.channel.getOption(HTTP2StreamChannelOptions.streamID).flatMap { (streamID) -> EventLoopFuture<Void> in
@@ -46,20 +54,10 @@ public class ServerHandlerH2: ServerHandler {
                 }
                 ctx.channel.write(self.wrapOutboundOut(.head(head)), promise: nil)
                 ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
-//                let lenght = 32 * 1024
-//                let count = response.body.readableBytes
-//                var index = 0
-//                while index < count {
-//                    let end = index + lenght > count ? count - index : lenght
-//                    if let bytes = response.body.getSlice(at: index, length: end) {
-//                        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(bytes))), promise: nil)
-//                    }
-//                    index += end
-//                }
                 self.state.responseComplete()
                 return ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)))
-            }.whenComplete { _ in
-                ctx.close(promise: nil)
+                }.whenComplete { _ in
+                    ctx.close(promise: nil)
             }
         }
     }

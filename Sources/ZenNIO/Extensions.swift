@@ -63,6 +63,8 @@ extension String {
             return "application/vnd.ms-word"
         case "xls", "xlsx":
             return "application/vnd.ms-excel"
+        case "wasm":
+            return "application/wasm"
         case "woff":
             return "font/font-woff"
         case "woff2":
