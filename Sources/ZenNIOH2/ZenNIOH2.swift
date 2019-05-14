@@ -44,6 +44,13 @@ public class ServerHandlerH2: ServerHandler {
         return response
     }
     
+    override public func errorHead(html: String, status: HTTPResponseStatus) -> HTTPResponseHead {
+        var head = HTTPResponseHead(version: .init(major: 2, minor: 0), status: status)
+        head.headers.add(name: "content-length", value: "\(html.count)")
+        head.headers.add(name: "content-type", value: "text/html; charset=utf-8")
+        return head
+    }
+
     override public func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         ctx.eventLoop.execute {
             ctx.channel.getOption(HTTP2StreamChannelOptions.streamID).flatMap { (streamID) -> EventLoopFuture<Void> in

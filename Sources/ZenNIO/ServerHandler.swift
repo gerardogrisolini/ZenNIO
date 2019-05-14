@@ -48,9 +48,6 @@ open class ServerHandler: ChannelInboundHandler {
         self.htdocsPath = htdocsPath
         self.fileIO = fileIO
     }
-    //    public init(htdocsPath: String) {
-    //        self.htdocsPath = htdocsPath
-    //    }
     
     private func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
         self.state.responseComplete()
@@ -79,18 +76,39 @@ open class ServerHandler: ChannelInboundHandler {
             request.clientIp = context.channel.remoteAddress!.description
             request.eventLoop = context.eventLoop
             
-            //let httpResponse: EventLoopFuture<HttpResponse>
             if let route = ZenNIO.router.getRoute(request: &request) {
                 let httpResponse = processRequest(ctx: context, request: request, route: route)
                 httpResponse.whenSuccess { response in
                     self.processResponse(ctx: context, response: response)
                 }
+            } else if let fileIO = self.fileIO {
+                fileRequest(ctx: context, fileIO: fileIO, request: infoSavedRequestHead!)
             } else {
-                fileRequest(ctx: context, request: infoSavedRequestHead!)
+                errorResponse(context, .notFound, "File not found")
             }
         }
     }
     
+    func errorResponse(_ ctx: ChannelHandlerContext, _ status: HTTPResponseStatus, _ error: String? = nil) {
+        let html = """
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html>
+<head><title>\(status.reasonPhrase)</title></head>
+<body>
+<p>ZenNIO</p>
+<h1>\(status.code) - \(status.reasonPhrase)</h1>
+<h2>\(error ?? "")</h2>
+</body>
+</html>
+"""
+        let response = self.errorHead(html: html, status: status)
+        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+        var buffer = ctx.channel.allocator.buffer(capacity: html.count)
+        buffer.writeString(html)
+        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
+        self.completeResponse(ctx, trailers: nil, promise: nil)
+    }
+
     private func processCORS(_ request: HttpRequest, _ response: HttpResponse) {
         guard ZenNIO.cors else { return }
         
@@ -103,7 +121,7 @@ open class ServerHandler: ChannelInboundHandler {
     private func processSession(_ request: HttpRequest, _ response: HttpResponse, _ filter: Bool) -> Bool {
         var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
         if session == nil {
-            session = ZenNIO.sessions.new(id: request.clientIp, uniqueID: nil)
+            session = ZenNIO.sessions.new(id: request.clientIp, data: nil)
             if request.referer.isEmpty {
                 response.addHeader(.setCookie, value: "sessionId=\(session!.id); expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;")
             }
@@ -199,18 +217,7 @@ open class ServerHandler: ChannelInboundHandler {
         }
     }
     
-    open func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
-        func errorResponse(_ status: HTTPResponseStatus) {
-            let response = self.httpResponseHead(request: request, status: status)
-            ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-            self.completeResponse(ctx, trailers: nil, promise: nil)
-        }
-        
-        guard let fileIO = self.fileIO else {
-            errorResponse(.notFound)
-            return
-        }
-        
+    open func fileRequest(ctx: ChannelHandlerContext, fileIO: NonBlockingFileIO, request: (HTTPRequestHead)) {
         var path = self.htdocsPath + request.uri
         if let index = path.firstIndex(of: "?") {
             path = path[path.startIndex...path.index(before: index)].description
@@ -218,19 +225,17 @@ open class ServerHandler: ChannelInboundHandler {
         
         let fileHandleAndRegion = fileIO.openFile(path: path, eventLoop: ctx.eventLoop)
         fileHandleAndRegion.whenFailure {
-            let status: HTTPResponseStatus
             switch $0 {
             case let e as IOError where e.errnoCode == ENOENT:
-                print("File not found: \(path)")
-                status = .notFound
+                self.errorResponse(ctx, .notFound, "File not found")
+                break
             case let e as IOError:
-                print("IOError: \(e.reason) - \(e.description)")
-                status = .internalServerError
+                self.errorResponse(ctx, .internalServerError, "\(e.reason) - \(e.description)")
+                break
             default:
-                print("\($0): \(type(of: $0)) error")
-                status = .badRequest
+                self.errorResponse(ctx, .badRequest, "\($0): \(type(of: $0)) error")
+                break
             }
-            errorResponse(status)
         }
         fileHandleAndRegion.whenSuccess { (file, region) in
             var responseStarted = false
@@ -271,6 +276,13 @@ open class ServerHandler: ChannelInboundHandler {
         response.headers.add(name: "Content-Length", value: "\(region.endIndex)")
         response.headers.add(name: "Content-Type", value: contentType)
         return response
+    }
+
+    open func errorHead(html: String, status: HTTPResponseStatus) -> HTTPResponseHead {
+        var head = HTTPResponseHead(version: .init(major: 1, minor: 0), status: status)
+        head.headers.add(name: "Content-Length", value: "\(html.count)")
+        head.headers.add(name: "Content-Type", value: "text/html; charset=utf-8")
+        return head
     }
 }
 
