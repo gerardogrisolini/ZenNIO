@@ -84,7 +84,7 @@ open class ServerHandler: ChannelInboundHandler {
             } else if let fileIO = self.fileIO {
                 fileRequest(ctx: context, fileIO: fileIO, request: infoSavedRequestHead!)
             } else {
-                errorResponse(context, .notFound, "File not found")
+                errorResponse(context, .notFound)
             }
         }
     }
@@ -227,7 +227,7 @@ open class ServerHandler: ChannelInboundHandler {
         fileHandleAndRegion.whenFailure {
             switch $0 {
             case let e as IOError where e.errnoCode == ENOENT:
-                self.errorResponse(ctx, .notFound, "File not found")
+                self.errorResponse(ctx, .notFound)
                 break
             case let e as IOError:
                 self.errorResponse(ctx, .internalServerError, "\(e.reason) - \(e.description)")
