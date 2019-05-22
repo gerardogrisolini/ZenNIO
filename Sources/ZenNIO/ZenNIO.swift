@@ -13,13 +13,13 @@ open class ZenNIO {
     public var httpProtocol: HttpProtocol = .v1
     public let port: Int
     public let host: String
-    public var htdocsPath: String = ""
+    public static var htdocsPath: String = ""
     public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
     private var channel: Channel?
     
     static var router = Router()
-    public static var sessions = HttpSession()
+    static var sessions = HttpSession()
     static var cors = false
     static var session = false
     
@@ -43,7 +43,7 @@ open class ZenNIO {
     }
     
     public func addWebroot(path: String = "webroot") {
-        htdocsPath = path
+        ZenNIO.htdocsPath = path
     }
     
     public func addCORS() {
@@ -113,7 +113,7 @@ open class ZenNIO {
         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
             channel.pipeline.addHandlers([
                 HTTPResponseCompressor(initialByteBufferCapacity: 0),
-                ServerHandler(htdocsPath: self.htdocsPath)
+                ServerHandler()
             ])
         }
     }

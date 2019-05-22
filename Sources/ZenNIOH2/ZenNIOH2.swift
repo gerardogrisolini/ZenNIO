@@ -10,7 +10,6 @@ import NIOHTTP1
 import NIOHTTP2
 import ZenNIO
 import ZenNIOSSL
-//import NIOHTTPCompression
 
 public class ZenNIOH2: ZenNIOSSL {
     
@@ -21,14 +20,12 @@ public class ZenNIOH2: ZenNIOSSL {
     
     public override func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
-            return streamChannel.pipeline.addHandler(HTTP2ResponseCompressor(initialByteBufferCapacity: 0)).flatMap { () -> EventLoopFuture<Void> in
-                //return streamChannel.pipeline.addHandler(HTTP2PushPromise(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                    return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                        streamChannel.pipeline.addHandler(HTTP2ServerHandler(htdocsPath: self.htdocsPath))
-                    }.flatMap { () -> EventLoopFuture<Void> in
-                        channel.pipeline.addHandler(ErrorHandler())
-                    }
-                //}
+            return streamChannel.pipeline.addHandler(HTTP2Response(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
+                return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
+                    streamChannel.pipeline.addHandler(HTTP2ServerHandler())
+                }.flatMap { () -> EventLoopFuture<Void> in
+                    channel.pipeline.addHandler(ErrorHandler())
+                }
             }
         }.flatMap { (_: HTTP2StreamMultiplexer) in
             return channel.pipeline.addHandler(ErrorHandler())

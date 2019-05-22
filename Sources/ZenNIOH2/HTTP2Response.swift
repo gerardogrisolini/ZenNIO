@@ -5,11 +5,13 @@
 //  Created by Gerardo Grisolini on 15/05/2019.
 //
 
+import Foundation
 import CNIOExtrasZlib
 import NIO
 import NIOHTTP1
 import NIOHTTP2
 import NIOHPACK
+import ZenNIO
 
 extension StringProtocol {
     /// Test if this `Collection` starts with the unicode scalars of `needle`.
@@ -41,7 +43,7 @@ private func qValueFromHeader<S: StringProtocol>(_ text: S) -> Float {
     return qValue
 }
 
-/// A HTTPResponseCompressor is a duplex channel handler that handles automatic streaming compression of
+/// A HTTP2Response is a duplex channel handler that handles automatic streaming compression of
 /// HTTP responses. It respects the client's Accept-Encoding preferences, including q-values if present,
 /// and ensures that clients are served the compression algorithm that works best for them.
 ///
@@ -52,7 +54,7 @@ private func qValueFromHeader<S: StringProtocol>(_ text: S) -> Float {
 /// ahead-of-time instead of dynamically, could be a waste of CPU time and latency for relatively minimal
 /// benefit. This channel handler should be present in the pipeline only for dynamically-generated and
 /// highly-compressible content, which will see the biggest benefits from streaming compression.
-public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChannelHandler {
+public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler {
     public typealias InboundIn = HTTP2Frame
     public typealias InboundOut = HTTP2Frame
     public typealias OutboundIn = HTTP2Frame
@@ -68,6 +70,9 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
         case deflate = "deflate"
     }
     
+    private let streamID: HTTP2StreamID
+    public static var lastStreamID: Int = 2
+
     // Private variable for storing stream data.
     private var stream = z_stream()
     
@@ -77,16 +82,21 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
     private var acceptQueue = [String]()
     
     private var pendingResponse: PartialHTTP2Frame!
+    private var pendingPushPromise: [HTTP2Frame]!
+    private var pendingPushResponse: [(HTTP2Frame?, HTTP2Frame?)]!
     private var pendingWritePromise: EventLoopPromise<Void>!
     
     private let initialByteBufferCapacity: Int
     
-    public init(initialByteBufferCapacity: Int = 1024) {
+    public init(streamID: HTTP2StreamID, initialByteBufferCapacity: Int = 1024) {
+        self.streamID = streamID
         self.initialByteBufferCapacity = initialByteBufferCapacity
     }
-    
+
     public func handlerAdded(context: ChannelHandlerContext) {
-        pendingResponse = PartialHTTP2Frame(bodyBuffer: context.channel.allocator.buffer(capacity: initialByteBufferCapacity))
+        pendingResponse = PartialHTTP2Frame()
+        pendingPushPromise = [HTTP2Frame]()
+        pendingPushResponse = [(HTTP2Frame?, HTTP2Frame?)]()
         pendingWritePromise = context.eventLoop.makePromise()
     }
     
@@ -103,7 +113,6 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
         
         if case .headers(let head) = frame.payload {
             let encoding = head.headers[canonicalForm: "accept-encoding"]
-            print(encoding)
             acceptQueue.append(contentsOf: encoding)
         }
         
@@ -112,7 +121,6 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
     
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
         var frame = unwrapOutboundIn(data)
-        print(frame.streamID)
         switch frame.payload {
         case .headers(var responseHead):
             algorithm = compressionAlgorithm()
@@ -123,18 +131,17 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
             // Previous handlers in the pipeline might have already set this header even though
             // they should not as it is compressor responsibility to decide what encoding to use
             responseHead.headers.add(name: "content-encoding", value: algorithm!.rawValue)
-            initializeEncoder(encoding: algorithm!)
             frame.payload = .headers(responseHead)
+            
+            pendingResponse = PartialHTTP2Frame(bodyBuffer: context.channel.allocator.buffer(capacity: initialByteBufferCapacity))
             pendingResponse.bufferResponseHead(frame)
+            pushPromise(context: context, head: responseHead)
+            
             pendingWritePromise.futureResult.cascade(to: promise)
-            print(responseHead.headers)
         case .data(_):
             if algorithm != nil {
-                pendingResponse.bufferBodyPart(&frame)
+                pendingResponse.bufferBodyPart(&frame.payload)
                 pendingWritePromise.futureResult.cascade(to: promise)
-                emitPendingWrites(context: context)
-                algorithm = nil
-                deinitializeEncoder()
             } else {
                 context.write(data, promise: promise)
             }
@@ -144,9 +151,73 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
     }
     
     public func flush(context: ChannelHandlerContext) {
-        //emitPendingWrites(context: context)
+        emitPendingWrites(context: context)
         context.flush()
+        algorithm = nil
+        deinitializeEncoder()
     }
+    
+    func pushPromise(context: ChannelHandlerContext, head: HTTP2Frame.FramePayload.Headers) {
+        if let link = head.headers.filter({ $0.name == "link"}).first?.value {
+            let authority = head.headers.first { $0.name == "authority" }?.value ?? "localhost:8888"
+            
+            let links = link
+                .split(separator: ",")
+                .map { item -> String in
+                    let val = item.split(separator: ";")
+                    return val.first!
+                        .replacingOccurrences(of: "<", with: "")
+                        .replacingOccurrences(of: ">", with: "")
+                        .trimmingCharacters(in: .whitespaces)
+                }
+            
+            for uri in links {
+                if let data = FileManager.default.contents(atPath: "\(ZenNIO.htdocsPath)/\(uri)") {
+                    HTTP2Response.lastStreamID += 2
+                    let pushStreamId = HTTP2StreamID(HTTP2Response.lastStreamID)
+                    
+                    /// PUSH_PROMISE
+                    let pushPromise = HTTP2Frame.FramePayload.PushPromise(
+                        pushedStreamID: pushStreamId,
+                        headers: HPACKHeaders([
+                            (":method", "GET"),
+                            (":scheme", "https"),
+                            (":path", uri),
+                            (":authority", authority)
+                        ])
+                    )
+                    
+                    let framePush = HTTP2Frame(streamID: streamID, payload: .pushPromise(pushPromise))
+                    pendingPushPromise.append(framePush)
+                    
+                    /// HEAD AND BODY
+                    var header = HTTP2Frame.FramePayload.Headers(
+                        headers: HPACKHeaders([
+                            (":status", "200"),
+                            ("x-stream-id", HTTP2Response.lastStreamID.description),
+                            ("content-length", data.count.description),
+                            ("content-type", uri.contentType)
+                        ])
+                    )
+                    if let algorithm = algorithm {
+                        header.headers.add(name: "content-encoding", value: algorithm.rawValue)
+                    }
+                    
+                    let frameHeader = HTTP2Frame(streamID: pushStreamId, payload: .headers(header))
+                    var part = PartialHTTP2Frame()
+                    part.bufferResponseHead(frameHeader)
+                    part.body = context.channel.allocator.buffer(capacity: data.count)
+                    part.body!.writeBytes(data)
+                    
+                    initializeEncoder(encoding: algorithm!)
+                    let pushCompressed = part.flush(compressor: &stream, allocator: context.channel.allocator)
+                    deinitializeEncoder()
+                    pendingPushResponse.append(pushCompressed)
+                }
+            }
+        }
+    }
+    
     
     /// Determines the compression algorithm to use for the next response.
     ///
@@ -212,18 +283,40 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
     ///
     /// Called either when a HTTP end message is received or our flush() method is called.
     private func emitPendingWrites(context: ChannelHandlerContext) {
-        let writesToEmit = pendingResponse.flush(compressor: &stream, allocator: context.channel.allocator)
-        var pendingPromise = pendingWritePromise
+        guard let algorithm = algorithm else { return }
         
+        initializeEncoder(encoding: algorithm)
+        let writesToEmit = pendingResponse.flush(compressor: &stream, allocator: context.channel.allocator)
+        deinitializeEncoder()
+
+        var pendingPromise = pendingWritePromise
+
         if let writeHead = writesToEmit.0 {
             context.write(wrapOutboundOut(writeHead), promise: pendingPromise)
             pendingPromise = nil
+        }
+        
+        for pushPromise in pendingPushPromise {
+            context.write(wrapOutboundOut(pushPromise), promise: pendingPromise)
+        }
+
+        for pendingPush in pendingPushResponse {
+            if let writeHead = pendingPush.0 {
+                context.write(wrapOutboundOut(writeHead), promise: pendingPromise)
+            }
+        }
+     
+        for pendingPush in pendingPushResponse {
+            if let writeBody = pendingPush.1 {
+                context.write(wrapOutboundOut(writeBody), promise: pendingPromise)
+            }
         }
         
         if let writeBody = writesToEmit.1 {
             context.write(wrapOutboundOut(writeBody), promise: pendingPromise)
             pendingPromise = nil
         }
+        
         
         // If we still have the pending promise, we never emitted a write. Fail the promise,
         // as anything that is listening for its data somehow lost it.
@@ -245,16 +338,16 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
 /// if we can encapsulate our ideas about how HTTP responses in an entity like this.
 private struct PartialHTTP2Frame {
     var head: HTTP2Frame?
-    var body: ByteBuffer
+    var body: ByteBuffer?
     private let initialBufferSize: Int
     
     var isCompleteResponse: Bool {
         return head != nil
     }
     
-    init(bodyBuffer: ByteBuffer) {
+    init(bodyBuffer: ByteBuffer? = nil) {
         body = bodyBuffer
-        initialBufferSize = bodyBuffer.capacity
+        initialBufferSize = bodyBuffer?.capacity ?? 0
         head = nil
     }
     
@@ -263,20 +356,30 @@ private struct PartialHTTP2Frame {
         self.head = head
     }
     
-    mutating func bufferBodyPart(_ bodyPart: inout HTTP2Frame) {
-        _ = withUnsafeBytes(of: &bodyPart) { bytes in
-            body.writeBytes(bytes)
+    mutating func bufferBodyPart(_ bodyPart: inout HTTP2Frame.FramePayload) {
+        switch bodyPart {
+        case .data(let payload):
+            switch payload.data {
+            case .byteBuffer(var buffer):
+                body?.writeBuffer(&buffer)
+            case .fileRegion:
+                fatalError("Cannot currently compress file regions")
+            }
+        default:
+            break
+        }
+    }
+
+    private mutating func clear() {
+        head = nil
+        if var body = body {
+            body.clear()
+            body.reserveCapacity(initialBufferSize)
         }
     }
     
-    private mutating func clear() {
-        head = nil
-        body.clear()
-        body.reserveCapacity(initialBufferSize)
-    }
-    
     mutating private func compressBody(compressor: inout z_stream, allocator: ByteBufferAllocator, flag: Int32) -> ByteBuffer? {
-        guard body.readableBytes > 0 else {
+        guard var body = body, body.readableBytes > 0 else {
             return nil
         }
         
@@ -290,6 +393,7 @@ private struct PartialHTTP2Frame {
         compressor.oneShotDeflate(from: &body, to: &outputBuffer, flag: flag)
         precondition(body.readableBytes == 0)
         precondition(outputBuffer.readableBytes > 0)
+        
         return outputBuffer
     }
     
@@ -323,7 +427,7 @@ private struct PartialHTTP2Frame {
                 headers.add(name: "content-length", value: "\(bodyLength)")
                 h.headers = headers
                 head!.payload = .headers(h)
-                print(headers)
+                //print(headers)
                 break
             default:
                 break
@@ -332,7 +436,6 @@ private struct PartialHTTP2Frame {
             var payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(body!))
             payload.endStream = true
             let frameData = HTTP2Frame(streamID: head!.streamID, payload: .data(payload))
-            clear()
             return (head, frameData)
         }
         

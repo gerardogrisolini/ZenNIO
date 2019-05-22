@@ -37,15 +37,12 @@ open class ServerHandler: ChannelInboundHandler {
     
     public var keepAlive = false
     public var state = State.idle
-    private let htdocsPath: String
     
     private var savedBodyBytes: [UInt8] = []
     public var infoSavedRequestHead: HTTPRequestHead?
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
     
-    public init(htdocsPath: String) {
-        self.htdocsPath = htdocsPath
-    }
+    public init() { }
     
     private func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
         self.state.responseComplete()
@@ -133,7 +130,7 @@ open class ServerHandler: ChannelInboundHandler {
         request.eventLoop.execute {
             let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0), promise: promise)
 
-            var path = self.htdocsPath + request.url
+            var path = ZenNIO.htdocsPath + request.url
             if let index = path.firstIndex(of: "?") {
                 path = path[path.startIndex...path.index(before: index)].description
             }
