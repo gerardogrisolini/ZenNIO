@@ -1,5 +1,5 @@
 //
-//  HTTP2ResponseCompressor.swift
+//  HTTP2Response.swift
 //  ZenNIOH2
 //
 //  Created by Gerardo Grisolini on 15/05/2019.
