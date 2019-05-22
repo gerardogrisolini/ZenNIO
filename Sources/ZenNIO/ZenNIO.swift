@@ -112,7 +112,7 @@ open class ZenNIO {
     open func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
             channel.pipeline.addHandlers([
-                HTTPResponseCompressor(initialByteBufferCapacity: 0),
+                HTTPResponseCompressor(),
                 ServerHandler()
             ])
         }
