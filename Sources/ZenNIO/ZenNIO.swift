@@ -16,8 +16,6 @@ open class ZenNIO {
     public var htdocsPath: String = ""
     public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
-    public var fileIO: NonBlockingFileIO? = nil
-    private let threadPool: NIOThreadPool
     private var channel: Channel?
     
     static var router = Router()
@@ -31,10 +29,9 @@ open class ZenNIO {
         port: Int = 8888,
         router: Router = Router(),
         numberOfThreads: Int = System.coreCount
-        ) {
+    ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
-        threadPool = NIOThreadPool(numberOfThreads: 2)
         
         self.host = host
         self.port = port
@@ -65,13 +62,7 @@ open class ZenNIO {
     
     public func start() throws {
         defer {
-            try! threadPool.syncShutdownGracefully()
             try! eventLoopGroup.syncShutdownGracefully()
-        }
-        
-        if !htdocsPath.isEmpty {
-            threadPool.start()
-            fileIO = NonBlockingFileIO(threadPool: threadPool)
         }
         
         let bootstrap = ServerBootstrap(group: eventLoopGroup)
@@ -122,8 +113,8 @@ open class ZenNIO {
         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
             channel.pipeline.addHandlers([
                 HTTPResponseCompressor(initialByteBufferCapacity: 0),
-                ServerHandler(fileIO: self.fileIO, htdocsPath: self.htdocsPath)
-                ])
+                ServerHandler(htdocsPath: self.htdocsPath)
+            ])
         }
     }
 }

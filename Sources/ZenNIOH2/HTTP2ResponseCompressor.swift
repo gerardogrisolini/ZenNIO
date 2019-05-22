@@ -8,6 +8,8 @@
 import CNIOExtrasZlib
 import NIO
 import NIOHTTP1
+import NIOHTTP2
+import NIOHPACK
 
 extension StringProtocol {
     /// Test if this `Collection` starts with the unicode scalars of `needle`.
@@ -51,11 +53,11 @@ private func qValueFromHeader<S: StringProtocol>(_ text: S) -> Float {
 /// benefit. This channel handler should be present in the pipeline only for dynamically-generated and
 /// highly-compressible content, which will see the biggest benefits from streaming compression.
 public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChannelHandler {
-    public typealias InboundIn = HTTPServerRequestPart
-    public typealias InboundOut = HTTPServerRequestPart
-    public typealias OutboundIn = HTTPServerResponsePart
-    public typealias OutboundOut = HTTPServerResponsePart
-    
+    public typealias InboundIn = HTTP2Frame
+    public typealias InboundOut = HTTP2Frame
+    public typealias OutboundIn = HTTP2Frame
+    public typealias OutboundOut = HTTP2Frame
+
     public enum CompressionError: Error {
         case uncompressedWritesPending
         case noDataToWrite
@@ -72,9 +74,9 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
     private var algorithm: CompressionAlgorithm?
     
     // A queue of accept headers.
-    private var acceptQueue = CircularBuffer<[Substring]>(initialCapacity: 8)
+    private var acceptQueue = [String]()
     
-    private var pendingResponse: PartialHTTPResponse!
+    private var pendingResponse: PartialHTTP2Frame!
     private var pendingWritePromise: EventLoopPromise<Void>!
     
     private let initialByteBufferCapacity: Int
@@ -84,7 +86,7 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
     }
     
     public func handlerAdded(context: ChannelHandlerContext) {
-        pendingResponse = PartialHTTPResponse(bodyBuffer: context.channel.allocator.buffer(capacity: initialByteBufferCapacity))
+        pendingResponse = PartialHTTP2Frame(bodyBuffer: context.channel.allocator.buffer(capacity: initialByteBufferCapacity))
         pendingWritePromise = context.eventLoop.makePromise()
     }
     
@@ -97,53 +99,52 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        if case .head(let requestHead) = unwrapInboundIn(data) {
-            acceptQueue.append(requestHead.headers[canonicalForm: "accept-encoding"])
+        let frame = self.unwrapInboundIn(data)
+        
+        if case .headers(let head) = frame.payload {
+            let encoding = head.headers[canonicalForm: "accept-encoding"]
+            print(encoding)
+            acceptQueue.append(contentsOf: encoding)
         }
         
         context.fireChannelRead(data)
     }
     
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
-        let httpData = unwrapOutboundIn(data)
-        switch httpData {
-        case .head(var responseHead):
+        var frame = unwrapOutboundIn(data)
+        print(frame.streamID)
+        switch frame.payload {
+        case .headers(var responseHead):
             algorithm = compressionAlgorithm()
             guard algorithm != nil else {
-                context.write(wrapOutboundOut(.head(responseHead)), promise: promise)
+                context.write(wrapOutboundOut(frame), promise: promise)
                 return
             }
             // Previous handlers in the pipeline might have already set this header even though
             // they should not as it is compressor responsibility to decide what encoding to use
-            responseHead.headers.replaceOrAdd(name: "content-encoding", value: algorithm!.rawValue)
+            responseHead.headers.add(name: "content-encoding", value: algorithm!.rawValue)
             initializeEncoder(encoding: algorithm!)
-            pendingResponse.bufferResponseHead(responseHead)
+            frame.payload = .headers(responseHead)
+            pendingResponse.bufferResponseHead(frame)
             pendingWritePromise.futureResult.cascade(to: promise)
-        case .body(let body):
+            print(responseHead.headers)
+        case .data(_):
             if algorithm != nil {
-                pendingResponse.bufferBodyPart(body)
+                pendingResponse.bufferBodyPart(&frame)
                 pendingWritePromise.futureResult.cascade(to: promise)
+                emitPendingWrites(context: context)
+                algorithm = nil
+                deinitializeEncoder()
             } else {
                 context.write(data, promise: promise)
             }
-        case .end:
-            // This compress is not done in flush because we need to be done with the
-            // compressor now.
-            guard algorithm != nil else {
-                context.write(data, promise: promise)
-                return
-            }
-            
-            pendingResponse.bufferResponseEnd(httpData)
-            pendingWritePromise.futureResult.cascade(to: promise)
-            emitPendingWrites(context: context)
-            algorithm = nil
-            deinitializeEncoder()
+        default:
+            break
         }
     }
     
     public func flush(context: ChannelHandlerContext) {
-        emitPendingWrites(context: context)
+        //emitPendingWrites(context: context)
         context.flush()
     }
     
@@ -152,18 +153,18 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
     /// Returns the compression algorithm to use, or nil if the next response
     /// should not be compressed.
     private func compressionAlgorithm() -> CompressionAlgorithm? {
-        let acceptHeaders = acceptQueue.removeFirst()
+        //let acceptHeaders = acceptQueue.removeFirst()
         
         var gzipQValue: Float = -1
         var deflateQValue: Float = -1
         var anyQValue: Float = -1
         
-        for acceptHeader in acceptHeaders {
-            if acceptHeader.startsWithSameUnicodeScalars(string: "gzip") || acceptHeader.startsWithSameUnicodeScalars(string: "x-gzip") {
+        for acceptHeader in acceptQueue {
+            if acceptHeader.hasPrefix("gzip") || acceptHeader.hasPrefix("x-gzip") {
                 gzipQValue = qValueFromHeader(acceptHeader)
-            } else if acceptHeader.startsWithSameUnicodeScalars(string: "deflate") {
+            } else if acceptHeader.hasPrefix("deflate") {
                 deflateQValue = qValueFromHeader(acceptHeader)
-            } else if acceptHeader.startsWithSameUnicodeScalars(string: "*") {
+            } else if acceptHeader.hasPrefix("*") {
                 anyQValue = qValueFromHeader(acceptHeader)
             }
         }
@@ -215,17 +216,12 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
         var pendingPromise = pendingWritePromise
         
         if let writeHead = writesToEmit.0 {
-            context.write(wrapOutboundOut(.head(writeHead)), promise: pendingPromise)
+            context.write(wrapOutboundOut(writeHead), promise: pendingPromise)
             pendingPromise = nil
         }
         
         if let writeBody = writesToEmit.1 {
-            context.write(wrapOutboundOut(.body(.byteBuffer(writeBody))), promise: pendingPromise)
-            pendingPromise = nil
-        }
-        
-        if let writeEnd = writesToEmit.2 {
-            context.write(wrapOutboundOut(writeEnd), promise: pendingPromise)
+            context.write(wrapOutboundOut(writeBody), promise: pendingPromise)
             pendingPromise = nil
         }
         
@@ -247,50 +243,34 @@ public final class HTTP2ResponseCompressor: ChannelDuplexHandler, RemovableChann
 /// will have a complete HTTP response to compress in one shot, allowing us to update the content
 /// length, rather than force the response to be chunked. It is much easier to do the right thing
 /// if we can encapsulate our ideas about how HTTP responses in an entity like this.
-private struct PartialHTTPResponse {
-    var head: HTTPResponseHead?
+private struct PartialHTTP2Frame {
+    var head: HTTP2Frame?
     var body: ByteBuffer
-    var end: HTTPServerResponsePart?
     private let initialBufferSize: Int
     
     var isCompleteResponse: Bool {
-        return head != nil && end != nil
-    }
-    
-    var mustFlush: Bool {
-        return end != nil
+        return head != nil
     }
     
     init(bodyBuffer: ByteBuffer) {
         body = bodyBuffer
         initialBufferSize = bodyBuffer.capacity
+        head = nil
     }
     
-    mutating func bufferResponseHead(_ head: HTTPResponseHead) {
+    mutating func bufferResponseHead(_ head: HTTP2Frame) {
         precondition(self.head == nil)
         self.head = head
     }
     
-    mutating func bufferBodyPart(_ bodyPart: IOData) {
-        switch bodyPart {
-        case .byteBuffer(var buffer):
-            body.writeBuffer(&buffer)
-        case .fileRegion:
-            fatalError("Cannot currently compress file regions")
+    mutating func bufferBodyPart(_ bodyPart: inout HTTP2Frame) {
+        _ = withUnsafeBytes(of: &bodyPart) { bytes in
+            body.writeBytes(bytes)
         }
-    }
-    
-    mutating func bufferResponseEnd(_ end: HTTPServerResponsePart) {
-        precondition(self.end == nil)
-        guard case .end = end else {
-            fatalError("Buffering wrong entity type: \(end)")
-        }
-        self.end = end
     }
     
     private mutating func clear() {
         head = nil
-        end = nil
         body.clear()
         body.reserveCapacity(initialBufferSize)
     }
@@ -326,21 +306,38 @@ private struct PartialHTTPResponse {
     ///
     /// Calling this function resets the buffer, freeing any excess memory allocated in the internal
     /// buffer and losing all copies of the other HTTP data. At this point it may freely be reused.
-    mutating func flush(compressor: inout z_stream, allocator: ByteBufferAllocator) -> (HTTPResponseHead?, ByteBuffer?, HTTPServerResponsePart?) {
-        let flag = mustFlush ? Z_FINISH : Z_SYNC_FLUSH
+    mutating func flush(compressor: inout z_stream, allocator: ByteBufferAllocator) -> (HTTP2Frame?, HTTP2Frame?) {
+        let flag = Z_FINISH
         
         let body = compressBody(compressor: &compressor, allocator: allocator, flag: flag)
         if let bodyLength = body?.readableBytes, isCompleteResponse && bodyLength > 0 {
-            //head!.headers.remove(name: "transfer-encoding")
-            head!.headers.replaceOrAdd(name: "content-length", value: "\(bodyLength)")
-        } else if head != nil && head!.status.mayHaveResponseBody {
-            head!.headers.remove(name: "content-length")
-            //head!.headers.replaceOrAdd(name: "transfer-encoding", value: "chunked")
+            
+            switch head!.payload {
+            case .headers(var h):
+                var headers = HPACKHeaders()
+                h.headers.forEach { (name, value, indexable) in
+                    if name != "content-length" {
+                        headers.add(name: name, value: value)
+                    }
+                }
+                headers.add(name: "content-length", value: "\(bodyLength)")
+                h.headers = headers
+                head!.payload = .headers(h)
+                print(headers)
+                break
+            default:
+                break
+            }
+
+            var payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(body!))
+            payload.endStream = true
+            let frameData = HTTP2Frame(streamID: head!.streamID, payload: .data(payload))
+            clear()
+            return (head, frameData)
         }
         
-        let response = (head, body, end)
         clear()
-        return response
+        return (nil, nil)
     }
 }
 

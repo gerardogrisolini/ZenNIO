@@ -24,6 +24,55 @@ final class ZenNIOTests: XCTestCase {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <title>OPC-UA</title>
+    <base href="/">
+    <meta name="viewport" content="width=device-width, user-scalable=no" />
+    <link rel="stylesheet" href="style.css">
+    <script src="main.js"></script>
+</head>
+<body onload="loadContent()">
+    <h1>OPC-UA</h1>
+    <span>Id <strong id="deviceId"></strong></span>
+    <br/><span>Type <strong id="deviceType"></strong></span>
+    <div class="header-panel" id="info"></div>
+    <div id="content"></div>
+    <div class="control-panel">
+        <div class="control-panel-left"><input type="checkbox" id="autoScroller" checked/> scroll to bottom</div>
+        <div class="control-panel-left">
+            <select id="frequency" onchange="changeFrequency(this.value)">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="30">30</option>
+                <option value="60">60</option>
+            </select>
+            refresh rate in seconds
+        </div>
+        <div class="control-panel-right">
+            <select id="history"></select>
+            <button onclick="showHistory()">Open</button>
+        </div>
+    </div>
+</body>
+</html>
+"""
+            res.addHeader(.link, value: "</style.css>; rel=preload; as=style, </main.js>; rel=preload; as=script")
+            res.addHeader(.cache, value: "no-cache")
+            res.addHeader(.cache, value: "max-age=1440") // 1 days
+            res.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)
+            res.send(html: html)
+            res.completed()
+        }
+
+        /*
+        // Default page (text/html)
+        router.get("/") { req, res in
+            let html = """
+<!DOCTYPE html>
+<html>
+<head>
     <meta charset='UTF-8'>
     <title>ZenNIO</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -80,7 +129,8 @@ final class ZenNIOTests: XCTestCase {
             res.send(html: html)
             res.completed()
         }
-
+        */
+        
         // Post account (application/json) JWT required
         router.post("/api/client") { req, res in
             do {
@@ -204,16 +254,16 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/client")
 
         // Webroot with static files (optional)
-        server.addWebroot(path: "/Users/gerardo/Projects/Zen/ZenRetail/webroot")
+        server.addWebroot(path: "/Users/gerardo/Downloads/webroot")
         
         // CORS (optional)
-        server.addCORS()
+        //server.addCORS()
         
         // SSL (optional)
         XCTAssertNoThrow(
             try server.addSSL(
-                certFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/cert.pem",
-                keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/SSL/key.pem"
+                certFile: "/Users/gerardo/Projects/ZenNIO/SSL/cert.pem",
+                keyFile: "/Users/gerardo/Projects/ZenNIO/SSL/key.pem"
             )
         )
 
