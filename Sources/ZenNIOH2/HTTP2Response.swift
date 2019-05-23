@@ -124,28 +124,20 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
         switch frame.payload {
         case .headers(var responseHead):
             algorithm = compressionAlgorithm()
-            guard algorithm != nil else {
-                context.write(wrapOutboundOut(frame), promise: promise)
-                return
+            if let algorithm = algorithm {
+                responseHead.headers.add(name: "content-encoding", value: algorithm.rawValue)
+                frame.payload = .headers(responseHead)
             }
-            // Previous handlers in the pipeline might have already set this header even though
-            // they should not as it is compressor responsibility to decide what encoding to use
-            responseHead.headers.add(name: "content-encoding", value: algorithm!.rawValue)
-            frame.payload = .headers(responseHead)
             
             pendingResponse = PartialHTTP2Frame(bodyBuffer: context.channel.allocator.buffer(capacity: initialByteBufferCapacity))
             pendingResponse.bufferResponseHead(frame)
             pushPromise(context: context, head: responseHead)
-            
             pendingWritePromise.futureResult.cascade(to: promise)
         case .data(_):
-            if algorithm != nil {
-                pendingResponse.bufferBodyPart(&frame.payload)
-                pendingWritePromise.futureResult.cascade(to: promise)
-            } else {
-                context.write(data, promise: promise)
-            }
+            pendingResponse.bufferBodyPart(&frame.payload)
+            pendingWritePromise.futureResult.cascade(to: promise)
         default:
+            //context.write(data, promise: promise)
             break
         }
     }
@@ -201,18 +193,25 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
                     )
                     if let algorithm = algorithm {
                         header.headers.add(name: "content-encoding", value: algorithm.rawValue)
+
+                        let frameHeader = HTTP2Frame(streamID: pushStreamId, payload: .headers(header))
+                        var part = PartialHTTP2Frame()
+                        part.bufferResponseHead(frameHeader)
+                        part.body = context.channel.allocator.buffer(capacity: data.count)
+                        part.body!.writeBytes(data)
+                        initializeEncoder(encoding: algorithm)
+                        let pushCompressed = part.flush(compressor: &stream, allocator: context.channel.allocator)
+                        deinitializeEncoder()
+                        pendingPushResponse.append(pushCompressed)
+                    } else {
+                        let frameHeader = HTTP2Frame(streamID: pushStreamId, payload: .headers(header))
+                        var buffer = context.channel.allocator.buffer(capacity: data.count)
+                        buffer.writeBytes(data)
+                        var payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(buffer))
+                        payload.endStream = true
+                        let frameData = HTTP2Frame(streamID: pushStreamId, payload: .data(payload))
+                        pendingPushResponse.append((frameHeader, frameData))
                     }
-                    
-                    let frameHeader = HTTP2Frame(streamID: pushStreamId, payload: .headers(header))
-                    var part = PartialHTTP2Frame()
-                    part.bufferResponseHead(frameHeader)
-                    part.body = context.channel.allocator.buffer(capacity: data.count)
-                    part.body!.writeBytes(data)
-                    
-                    initializeEncoder(encoding: algorithm!)
-                    let pushCompressed = part.flush(compressor: &stream, allocator: context.channel.allocator)
-                    deinitializeEncoder()
-                    pendingPushResponse.append(pushCompressed)
                 }
             }
         }
@@ -283,11 +282,15 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
     ///
     /// Called either when a HTTP end message is received or our flush() method is called.
     private func emitPendingWrites(context: ChannelHandlerContext) {
-        guard let algorithm = algorithm else { return }
         
-        initializeEncoder(encoding: algorithm)
-        let writesToEmit = pendingResponse.flush(compressor: &stream, allocator: context.channel.allocator)
-        deinitializeEncoder()
+        var writesToEmit: (HTTP2Frame?, HTTP2Frame?)
+        if let algorithm = algorithm {
+            initializeEncoder(encoding: algorithm)
+            writesToEmit = pendingResponse.flush(compressor: &stream, allocator: context.channel.allocator)
+            deinitializeEncoder()
+        } else {
+            writesToEmit = pendingResponse.flush()
+        }
 
         var pendingPromise = pendingWritePromise
 
@@ -298,17 +301,20 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
         
         for pushPromise in pendingPushPromise {
             context.write(wrapOutboundOut(pushPromise), promise: pendingPromise)
+            pendingPromise = nil
         }
 
         for pendingPush in pendingPushResponse {
             if let writeHead = pendingPush.0 {
                 context.write(wrapOutboundOut(writeHead), promise: pendingPromise)
+                pendingPromise = nil
             }
         }
      
         for pendingPush in pendingPushResponse {
             if let writeBody = pendingPush.1 {
                 context.write(wrapOutboundOut(writeBody), promise: pendingPromise)
+                pendingPromise = nil
             }
         }
         
@@ -427,7 +433,7 @@ private struct PartialHTTP2Frame {
                 headers.add(name: "content-length", value: "\(bodyLength)")
                 h.headers = headers
                 head!.payload = .headers(h)
-                //print(headers)
+                print(headers)
                 break
             default:
                 break
@@ -436,11 +442,22 @@ private struct PartialHTTP2Frame {
             var payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(body!))
             payload.endStream = true
             let frameData = HTTP2Frame(streamID: head!.streamID, payload: .data(payload))
-            return (head, frameData)
+            return (head!, frameData)
         }
         
         clear()
         return (nil, nil)
+    }
+    
+    mutating func flush() -> (HTTP2Frame?, HTTP2Frame?) {
+        defer { clear() }
+        var frameData: HTTP2Frame? = nil
+        if let body = body {
+            var payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(body))
+            payload.endStream = true
+            frameData = HTTP2Frame(streamID: head!.streamID, payload: .data(payload))
+        }
+        return (head, frameData)
     }
 }
 
