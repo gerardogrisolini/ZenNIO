@@ -30,14 +30,17 @@ final class ZenNIOTests: XCTestCase {
     <meta name="viewport" content="width=device-width, user-scalable=no" />
     <link rel="stylesheet" href="style.css">
     <script src="main.js"></script>
-    <script src="main.big.js"></script>
 </head>
 <body onload="loadContent()">
     <h1>OPC-UA</h1>
     <span>Id <strong id="deviceId"></strong></span>
     <br/><span>Type <strong id="deviceType"></strong></span>
     <div class="header-panel" id="info"></div>
-    <div id="content"></div>
+    <div id="content">
+        <img src="logo.png" />
+        <img src="logo.jpg" />
+        <img src="logo1.jpg" />
+    </div>
     <div class="control-panel">
         <div class="control-panel-left"><input type="checkbox" id="autoScroller" checked/> scroll to bottom</div>
         <div class="control-panel-left">
@@ -59,7 +62,7 @@ final class ZenNIOTests: XCTestCase {
 </body>
 </html>
 """
-            res.addHeader(.link, value: "</style.css>; rel=preload; as=style, </main.js>; rel=preload; as=script, </main.big.js>; rel=preload; as=script")
+            res.addHeader(.link, value: "</logo.png>; rel=preload; as=image, /logo.jpg>; rel=preload; as=image, /logo1.jpg>; rel=preload; as=image, </style.css>; rel=preload; as=style, </main.js>; rel=preload; as=script")
             res.addHeader(.cache, value: "no-cache")
             res.addHeader(.cache, value: "max-age=1440") // 1 days
             res.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)
@@ -255,7 +258,7 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/client")
 
         // Webroot with static files (optional)
-        server.addWebroot(path: "/Users/gerardo/Downloads/webroot")
+        server.addWebroot(path: "/Users/gerardo/Projects/webroot")
         
         // CORS (optional)
         //server.addCORS()

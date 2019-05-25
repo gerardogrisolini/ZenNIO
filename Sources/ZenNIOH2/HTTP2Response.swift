@@ -83,7 +83,7 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
     
     private var pendingResponse: PartialHTTP2Frame!
     private var pendingPushPromise: [HTTP2Frame]!
-    private var pendingPushResponse: [(HTTP2Frame?, HTTP2Frame?)]!
+    private var pendingPushResponse: [(HTTP2Frame?, HTTP2Frame?, Int)]!
     private var pendingWritePromise: EventLoopPromise<Void>!
     
     private let initialByteBufferCapacity: Int
@@ -96,7 +96,7 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
     public func handlerAdded(context: ChannelHandlerContext) {
         pendingResponse = PartialHTTP2Frame()
         pendingPushPromise = [HTTP2Frame]()
-        pendingPushResponse = [(HTTP2Frame?, HTTP2Frame?)]()
+        pendingPushResponse = [(HTTP2Frame?, HTTP2Frame?, Int)]()
         pendingWritePromise = context.eventLoop.makePromise()
     }
     
@@ -128,16 +128,15 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
                 responseHead.headers.add(name: "content-encoding", value: algorithm.rawValue)
                 frame.payload = .headers(responseHead)
             }
-            
             pendingResponse = PartialHTTP2Frame(bodyBuffer: context.channel.allocator.buffer(capacity: initialByteBufferCapacity))
             pendingResponse.bufferResponseHead(frame)
-            pushPromise(context: context, head: responseHead)
+            //pushPromise(context: context, head: responseHead)
             pendingWritePromise.futureResult.cascade(to: promise)
         case .data(_):
+            print(frame.streamID)
             pendingResponse.bufferBodyPart(&frame.payload)
             pendingWritePromise.futureResult.cascade(to: promise)
         default:
-            //context.write(data, promise: promise)
             break
         }
     }
@@ -145,12 +144,13 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
     public func flush(context: ChannelHandlerContext) {
         emitPendingWrites(context: context)
         context.flush()
-        algorithm = nil
-        deinitializeEncoder()
+//        algorithm = nil
+//        deinitializeEncoder()
     }
     
     func pushPromise(context: ChannelHandlerContext, head: HTTP2Frame.FramePayload.Headers) {
         if let link = head.headers.filter({ $0.name == "link"}).first?.value {
+            
             let authority = head.headers.first { $0.name == "authority" }?.value ?? "localhost:8888"
             
             let links = link
@@ -164,7 +164,9 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
                 }
             
             for uri in links {
-                if let data = FileManager.default.contents(atPath: "\(ZenNIO.htdocsPath)/\(uri)") {
+                do {
+                    //if let data = FileManager.default.contents(atPath: "\(ZenNIO.htdocsPath)/\(uri)") {
+                    let data = try Data(contentsOf: URL(fileURLWithPath: "\(ZenNIO.htdocsPath)/\(uri)"))
                     HTTP2Response.lastStreamID += 2
                     let pushStreamId = HTTP2StreamID(HTTP2Response.lastStreamID)
                     
@@ -191,27 +193,26 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
                             ("content-type", uri.contentType)
                         ])
                     )
+                
+                    var part = PartialHTTP2Frame()
+                    part.body = context.channel.allocator.buffer(capacity: data.count)
+                    part.body!.writeBytes(data)
+
                     if let algorithm = algorithm {
                         header.headers.add(name: "content-encoding", value: algorithm.rawValue)
-
                         let frameHeader = HTTP2Frame(streamID: pushStreamId, payload: .headers(header))
-                        var part = PartialHTTP2Frame()
                         part.bufferResponseHead(frameHeader)
-                        part.body = context.channel.allocator.buffer(capacity: data.count)
-                        part.body!.writeBytes(data)
                         initializeEncoder(encoding: algorithm)
-                        let pushCompressed = part.flush(compressor: &stream, allocator: context.channel.allocator)
+                        let compressed = part.flush(compressor: &stream, allocator: context.channel.allocator)
+                        pendingPushResponse.append(compressed)
                         deinitializeEncoder()
-                        pendingPushResponse.append(pushCompressed)
                     } else {
                         let frameHeader = HTTP2Frame(streamID: pushStreamId, payload: .headers(header))
-                        var buffer = context.channel.allocator.buffer(capacity: data.count)
-                        buffer.writeBytes(data)
-                        var payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(buffer))
-                        payload.endStream = true
-                        let frameData = HTTP2Frame(streamID: pushStreamId, payload: .data(payload))
-                        pendingPushResponse.append((frameHeader, frameData))
+                        part.bufferResponseHead(frameHeader)
+                        pendingPushResponse.append(part.flush())
                     }
+                } catch {
+                    print(error)
                 }
             }
         }
@@ -283,38 +284,39 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
     /// Called either when a HTTP end message is received or our flush() method is called.
     private func emitPendingWrites(context: ChannelHandlerContext) {
         
-        var writesToEmit: (HTTP2Frame?, HTTP2Frame?)
+        print("FLUSH")
+        var writesToEmit: (HTTP2Frame?, HTTP2Frame?, Int)
         if let algorithm = algorithm {
             initializeEncoder(encoding: algorithm)
             writesToEmit = pendingResponse.flush(compressor: &stream, allocator: context.channel.allocator)
             deinitializeEncoder()
         } else {
-            writesToEmit = pendingResponse.flush()
+            //writesToEmit = pendingResponse.flush()
+            return
         }
 
         var pendingPromise = pendingWritePromise
 
         if let writeHead = writesToEmit.0 {
+            //windowSizeUpdated(context: context, streamID: writeHead.streamID, size: writesToEmit.2)
             context.write(wrapOutboundOut(writeHead), promise: pendingPromise)
             pendingPromise = nil
         }
         
         for pushPromise in pendingPushPromise {
-            context.write(wrapOutboundOut(pushPromise), promise: pendingPromise)
-            pendingPromise = nil
+            context.write(wrapOutboundOut(pushPromise), promise: nil)
         }
 
         for pendingPush in pendingPushResponse {
             if let writeHead = pendingPush.0 {
-                context.write(wrapOutboundOut(writeHead), promise: pendingPromise)
-                pendingPromise = nil
+                //windowSizeUpdated(context: context, streamID: writeHead.streamID, size: pendingPush.2)
+                context.write(wrapOutboundOut(writeHead), promise: nil)
             }
         }
-     
+        
         for pendingPush in pendingPushResponse {
             if let writeBody = pendingPush.1 {
-                context.write(wrapOutboundOut(writeBody), promise: pendingPromise)
-                pendingPromise = nil
+                context.write(wrapOutboundOut(writeBody), promise: nil)
             }
         }
         
@@ -332,6 +334,16 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
         
         // Reset the pending promise.
         pendingWritePromise = context.eventLoop.makePromise()
+    }
+    
+    private var windowSize: Int = 65535
+    func windowSizeUpdated(context: ChannelHandlerContext, streamID: HTTP2StreamID, size: Int) {
+        let diff = windowSize - size
+        guard diff < 0 else { return }
+        let increment = diff * -1
+        let frame = HTTP2Frame(streamID: streamID, payload: .windowUpdate(windowSizeIncrement: increment))
+        context.write(wrapOutboundOut(frame), promise: nil)
+        
     }
 }
 /// A buffer object that allows us to keep track of how much of a HTTP response we've seen before
@@ -416,7 +428,7 @@ private struct PartialHTTP2Frame {
     ///
     /// Calling this function resets the buffer, freeing any excess memory allocated in the internal
     /// buffer and losing all copies of the other HTTP data. At this point it may freely be reused.
-    mutating func flush(compressor: inout z_stream, allocator: ByteBufferAllocator) -> (HTTP2Frame?, HTTP2Frame?) {
+    mutating func flush(compressor: inout z_stream, allocator: ByteBufferAllocator) -> (HTTP2Frame?, HTTP2Frame?, Int) {
         let flag = Z_FINISH
         
         let body = compressBody(compressor: &compressor, allocator: allocator, flag: flag)
@@ -434,30 +446,49 @@ private struct PartialHTTP2Frame {
                 h.headers = headers
                 head!.payload = .headers(h)
                 print(headers)
+                print(bodyLength)
                 break
             default:
                 break
             }
 
-            var payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(body!))
-            payload.endStream = true
-            let frameData = HTTP2Frame(streamID: head!.streamID, payload: .data(payload))
-            return (head!, frameData)
+            return (head!, makeDataFrame(streamID: head!.streamID, data: body!), bodyLength)
         }
         
         clear()
-        return (nil, nil)
+        return (nil, nil, 0)
     }
     
-    mutating func flush() -> (HTTP2Frame?, HTTP2Frame?) {
-        defer { clear() }
-        var frameData: HTTP2Frame? = nil
-        if let body = body {
-            var payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(body))
-            payload.endStream = true
-            frameData = HTTP2Frame(streamID: head!.streamID, payload: .data(payload))
+    mutating func flush() -> (HTTP2Frame?, HTTP2Frame?, Int) {
+        //defer { clear() }
+        guard let streamID = head?.streamID, let body = body else {
+            return (nil, nil, 0)
         }
-        return (head, frameData)
+        return (head, makeDataFrame(streamID: streamID, data: body), body.readableBytes)
+    }
+    
+    func makeDataFrame(streamID: HTTP2StreamID, data: ByteBuffer) -> HTTP2Frame {
+//        let dataLen = data.readableBytes
+//        let chunkSize = 32 * 1024
+//        let fullChunks = Int(dataLen / chunkSize)
+//        let totalChunks = fullChunks + (dataLen % 1024 != 0 ? 1 : 0)
+//        var frames = [HTTP2Frame]()
+//        for chunkCounter in 0..<totalChunks {
+//            let chunkBase = chunkCounter * chunkSize
+//            var diff = chunkSize
+//            if (chunkCounter == totalChunks - 1) {
+//                diff = dataLen - chunkBase
+//            }
+//            let buffer = data.getSlice(at: chunkBase, length: diff)!
+//
+//            var payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(buffer))
+//            payload.endStream = chunkCounter == 0 && totalChunks == 1 || chunkCounter == totalChunks - 1
+//            frames.append(HTTP2Frame(streamID: streamID, payload: .data(payload)))
+//        }
+//        return frames
+        
+        let payload = HTTP2Frame.FramePayload.Data(data: .byteBuffer(data), endStream: true)
+        return HTTP2Frame(streamID: streamID, payload: .data(payload))
     }
 }
 

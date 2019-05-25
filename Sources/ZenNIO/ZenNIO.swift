@@ -16,6 +16,8 @@ open class ZenNIO {
     public static var htdocsPath: String = ""
     public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
+    public var fileIO: NonBlockingFileIO? = nil
+    private let threadPool: NIOThreadPool
     private var channel: Channel?
     
     static var router = Router()
@@ -32,7 +34,8 @@ open class ZenNIO {
     ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
-        
+        threadPool = NIOThreadPool(numberOfThreads: 2)
+
         self.host = host
         self.port = port
         ZenNIO.router = router
@@ -62,9 +65,15 @@ open class ZenNIO {
     
     public func start() throws {
         defer {
+            try! threadPool.syncShutdownGracefully()
             try! eventLoopGroup.syncShutdownGracefully()
         }
         
+        if !ZenNIO.htdocsPath.isEmpty {
+            threadPool.start()
+            fileIO = NonBlockingFileIO(threadPool: threadPool)
+        }
+
         let bootstrap = ServerBootstrap(group: eventLoopGroup)
             // Specify backlog and enable SO_REUSEADDR for the server itself
             .serverChannelOption(ChannelOptions.backlog, value: 256)
