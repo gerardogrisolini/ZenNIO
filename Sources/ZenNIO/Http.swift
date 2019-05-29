@@ -38,7 +38,7 @@ public enum HttpHeader: String  {
     case cache = "Cache-Control"
     case expires = "Expires"
     case referer = "Referer"
-    case push = "X-Http2-Push"
+    //case push = "X-Http2-Push"
 }
 
 public enum HttpError: Swift.Error {

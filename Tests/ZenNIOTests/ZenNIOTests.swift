@@ -37,9 +37,10 @@ final class ZenNIOTests: XCTestCase {
     <br/><span>Type <strong id="deviceType"></strong></span>
     <div class="header-panel" id="info"></div>
     <div id="content">
-        <img src="logo.png" />
-        <img src="logo.jpg" />
         <img src="logo1.jpg" />
+        <img src="logo2.jpg" />
+        <img src="logo3.jpg" />
+        <img src="logo4.jpg" />
     </div>
     <div class="control-panel">
         <div class="control-panel-left"><input type="checkbox" id="autoScroller" checked/> scroll to bottom</div>
@@ -62,10 +63,10 @@ final class ZenNIOTests: XCTestCase {
 </body>
 </html>
 """
-            res.addHeader(.link, value: "</logo.png>; rel=preload; as=image, /logo.jpg>; rel=preload; as=image, /logo1.jpg>; rel=preload; as=image, </style.css>; rel=preload; as=style, </main.js>; rel=preload; as=script")
-            res.addHeader(.cache, value: "no-cache")
-            res.addHeader(.cache, value: "max-age=1440") // 1 days
-            res.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)
+            res.addHeader(.link, value: "</logo1.jpg>; rel=preload; as=image, </logo2.jpg>; rel=preload; as=image, </logo3.jpg>; rel=preload; as=image, </logo4.jpg>; rel=preload; as=image, </style.css>; rel=preload; as=style, </main.js>; rel=preload; as=script")
+//            res.addHeader(.cache, value: "no-cache")
+//            res.addHeader(.cache, value: "max-age=1440") // 1 days
+//            res.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)
             res.send(html: html)
             res.completed()
         }
@@ -266,8 +267,8 @@ final class ZenNIOTests: XCTestCase {
         // SSL (optional)
         XCTAssertNoThrow(
             try server.addSSL(
-                certFile: "/Users/gerardo/Projects/ZenNIO/SSL/cert.pem",
-                keyFile: "/Users/gerardo/Projects/ZenNIO/SSL/key.pem"
+                certFile: "/Users/gerardo/Projects/ZenRetail/certificate.crt",
+                keyFile: "/Users/gerardo/Projects/ZenRetail/private.pem"
             )
         )
 

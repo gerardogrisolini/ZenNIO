@@ -133,7 +133,6 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
             //pushPromise(context: context, head: responseHead)
             pendingWritePromise.futureResult.cascade(to: promise)
         case .data(_):
-            print(frame.streamID)
             pendingResponse.bufferBodyPart(&frame.payload)
             pendingWritePromise.futureResult.cascade(to: promise)
         default:
@@ -284,41 +283,38 @@ public final class HTTP2Response: ChannelDuplexHandler, RemovableChannelHandler 
     /// Called either when a HTTP end message is received or our flush() method is called.
     private func emitPendingWrites(context: ChannelHandlerContext) {
         
-        print("FLUSH")
         var writesToEmit: (HTTP2Frame?, HTTP2Frame?, Int)
         if let algorithm = algorithm {
             initializeEncoder(encoding: algorithm)
             writesToEmit = pendingResponse.flush(compressor: &stream, allocator: context.channel.allocator)
             deinitializeEncoder()
         } else {
-            //writesToEmit = pendingResponse.flush()
+            writesToEmit = pendingResponse.flush()
             return
         }
 
         var pendingPromise = pendingWritePromise
 
         if let writeHead = writesToEmit.0 {
-            //windowSizeUpdated(context: context, streamID: writeHead.streamID, size: writesToEmit.2)
             context.write(wrapOutboundOut(writeHead), promise: pendingPromise)
             pendingPromise = nil
         }
-        
-        for pushPromise in pendingPushPromise {
-            context.write(wrapOutboundOut(pushPromise), promise: nil)
-        }
 
-        for pendingPush in pendingPushResponse {
-            if let writeHead = pendingPush.0 {
-                //windowSizeUpdated(context: context, streamID: writeHead.streamID, size: pendingPush.2)
-                context.write(wrapOutboundOut(writeHead), promise: nil)
-            }
-        }
-        
-        for pendingPush in pendingPushResponse {
-            if let writeBody = pendingPush.1 {
-                context.write(wrapOutboundOut(writeBody), promise: nil)
-            }
-        }
+//        for pushPromise in pendingPushPromise {
+//            context.write(wrapOutboundOut(pushPromise), promise: nil)
+//        }
+//
+//        for pendingPush in pendingPushResponse {
+//            if let writeHead = pendingPush.0 {
+//                context.write(wrapOutboundOut(writeHead), promise: nil)
+//            }
+//        }
+//
+//        for pendingPush in pendingPushResponse {
+//            if let writeBody = pendingPush.1 {
+//                context.write(wrapOutboundOut(writeBody), promise: nil)
+//            }
+//        }
         
         if let writeBody = writesToEmit.1 {
             context.write(wrapOutboundOut(writeBody), promise: pendingPromise)
@@ -401,6 +397,7 @@ private struct PartialHTTP2Frame {
             return nil
         }
         
+        print("body: \(body.readableBytes)")
         // deflateBound() provides an upper limit on the number of bytes the input can
         // compress to. We add 5 bytes to handle the fact that Z_SYNC_FLUSH will append
         // an empty stored block that is 5 bytes long.
@@ -446,7 +443,6 @@ private struct PartialHTTP2Frame {
                 h.headers = headers
                 head!.payload = .headers(h)
                 print(headers)
-                print(bodyLength)
                 break
             default:
                 break
