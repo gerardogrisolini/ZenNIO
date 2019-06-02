@@ -62,7 +62,7 @@ final class ZenNIOTests: XCTestCase {
 </body>
 </html>
 """
-            res.addHeader(.link, value: "</logo.jpg>; rel=preload; as=image, </logo1.jpg>; rel=preload; as=image, </logo.png>; </style.css>; rel=preload; as=style, </main.js>; rel=preload; as=script")
+            res.addHeader(.link, value: "</logo.jpg>; rel=preload; as=image, </logo1.jpg>; rel=preload; as=image, </logo.png>; rel=preload; as=image,  </style.css>; rel=preload; as=style, </main.js>; rel=preload; as=script")
 //            res.addHeader(.cache, value: "no-cache")
 //            res.addHeader(.cache, value: "max-age=1440") // 1 days
 //            res.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)
