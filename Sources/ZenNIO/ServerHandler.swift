@@ -63,7 +63,6 @@ open class ServerHandler: ChannelInboundHandler {
         let reqPart = self.unwrapInboundIn(data)
         switch reqPart {
         case .head(let request):
-            print(request.uri)
             self.infoSavedRequestHead = request
             self.keepAlive = request.isKeepAlive
             self.state.requestReceived()

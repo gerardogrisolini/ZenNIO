@@ -60,7 +60,7 @@ public final class HTTP2PushPromise: ChannelOutboundHandler {
                             (":scheme", "https"),
                             (":path", uri),
                             (":authority", authority)
-                            ])
+                        ])
                     )
                     
                     let framePush = HTTP2Frame(streamID: streamID, payload: .pushPromise(pushPromise))
