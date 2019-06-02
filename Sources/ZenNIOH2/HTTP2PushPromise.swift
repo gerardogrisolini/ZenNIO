@@ -18,13 +18,11 @@ public final class HTTP2PushPromise: ChannelOutboundHandler {
     
     private let streamID: HTTP2StreamID
     static var lastStreamID: Int = 0
+    var pushPromises = [(HTTP2StreamID, String, Data)]()
 
     public init(streamID: HTTP2StreamID) {
         self.streamID = streamID
     }
-    
-    var pushPromises = [(HTTP2StreamID, String, Data)]()
-    
     
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
         var responsePart = self.unwrapOutboundIn(data)
@@ -96,13 +94,7 @@ public final class HTTP2PushPromise: ChannelOutboundHandler {
             }
             context.write(self.wrapOutboundOut(responsePart), promise: promise)
         default:
-            //context.write(self.wrapOutboundOut(responsePart), promise: promise)
             break
         }
     }
-    
-//    func windowSizeUpdated(context: ChannelHandlerContext, streamID: HTTP2StreamID, increment: Int) {
-//        let frame = HTTP2Frame(streamID: streamID, payload: .windowUpdate(windowSizeIncrement: increment))
-//        context.write(wrapOutboundOut(frame), promise: nil)
-//    }
 }

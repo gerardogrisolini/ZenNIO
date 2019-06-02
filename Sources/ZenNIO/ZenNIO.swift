@@ -34,7 +34,7 @@ open class ZenNIO {
     ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
-        threadPool = NIOThreadPool(numberOfThreads: 2)
+        threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
 
         self.host = host
         self.port = port
@@ -64,11 +64,6 @@ open class ZenNIO {
     }
     
     public func start() throws {
-        defer {
-            try! threadPool.syncShutdownGracefully()
-            try! eventLoopGroup.syncShutdownGracefully()
-        }
-        
         if !ZenNIO.htdocsPath.isEmpty {
             threadPool.start()
             fileIO = NonBlockingFileIO(threadPool: threadPool)
@@ -90,6 +85,11 @@ open class ZenNIO {
             .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 1)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
         
+        defer {
+            try! threadPool.syncShutdownGracefully()
+            try! eventLoopGroup.syncShutdownGracefully()
+        }
+
         channel = try { () -> Channel in
             return try bootstrap.bind(host: host, port: port).wait()
             }()
@@ -122,7 +122,7 @@ open class ZenNIO {
         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
             channel.pipeline.addHandlers([
                 HTTPResponseCompressor(),
-                ServerHandler()
+                ServerHandler(fileIO: self.fileIO)
             ])
         }
     }

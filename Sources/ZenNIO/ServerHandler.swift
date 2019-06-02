@@ -42,12 +42,11 @@ open class ServerHandler: ChannelInboundHandler {
     public var infoSavedRequestHead: HTTPRequestHead?
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
     
-//    private let fileIO: NonBlockingFileIO?
-//
-//    public init(fileIO: NonBlockingFileIO?) {
-//        self.fileIO = fileIO
-//    }
-    public init() {}
+    private let fileIO: NonBlockingFileIO?
+
+    public init(fileIO: NonBlockingFileIO?) {
+        self.fileIO = fileIO
+    }
 
     private func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
         self.state.responseComplete()
@@ -77,14 +76,12 @@ open class ServerHandler: ChannelInboundHandler {
             request.clientIp = context.channel.remoteAddress!.description
             request.eventLoop = context.eventLoop
             
-            var httpResponse: EventLoopFuture<HttpResponse>
             if let route = ZenNIO.router.getRoute(request: &request) {
-                httpResponse = processRequest(ctx: context, request: request, route: route)
+                processRequest(ctx: context, request: request, route: route).whenSuccess { response in
+                    self.processResponse(ctx: context, response: response)
+                }
             } else {
-                httpResponse = processFileRequest(ctx: context, request: request)
-            }
-            httpResponse.whenSuccess { response in
-                self.processResponse(ctx: context, response: response)
+                fileRequest(ctx: context, request: infoSavedRequestHead!)
             }
         }
     }
@@ -131,6 +128,7 @@ open class ServerHandler: ChannelInboundHandler {
         return promise.futureResult
     }
     
+    /*
     public func getStaticFile(uri: String) throws -> Data {
         let fileURL = URL(fileURLWithPath: "\(ZenNIO.htdocsPath)/\(uri)")
         do {
@@ -161,8 +159,8 @@ open class ServerHandler: ChannelInboundHandler {
         }
         return promise.futureResult
     }
-
-    /*
+    */
+    
     open func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
         func errorResponse(_ status: HTTPResponseStatus) {
             let response = self.httpResponseHead(request: request, status: status)
@@ -226,7 +224,7 @@ open class ServerHandler: ChannelInboundHandler {
                     }
                 }.whenComplete { (_: Result<Void, Error>) in
                     _ = try? file.close()
-            }
+                }
         }
     }
     
@@ -236,7 +234,6 @@ open class ServerHandler: ChannelInboundHandler {
         response.headers.add(name: "Content-Type", value: contentType)
         return response
     }
-    */
 
     open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
