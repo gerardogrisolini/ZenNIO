@@ -30,10 +30,10 @@ public class HTTP2ServerHandler: ServerHandler {
         }
     }
     
-//    override public func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
-//        var head = HTTPResponseHead(version: .init(major: 2, minor: 0), status: .ok)
-//        head.headers.add(name: "content-length", value: "\(region.endIndex)")
-//        head.headers.add(name: "content-type", value: contentType)
-//        return head
-//    }
+    override public func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
+        var head = HTTPResponseHead(version: .init(major: 2, minor: 0), status: .ok)
+        head.headers.add(name: "content-length", value: "\(region.endIndex)")
+        head.headers.add(name: "content-type", value: contentType)
+        return head
+    }
 }

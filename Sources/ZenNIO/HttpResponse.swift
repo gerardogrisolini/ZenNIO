@@ -52,19 +52,19 @@ public class HttpResponse {
     
     public func completed(_ status: HTTPResponseStatus = .ok) {
         self.status = status
-        if status.code > 300 {
-            let html = """
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-<html>
-<head><title>\(status.reasonPhrase)</title></head>
-<body>
-<h1>\(status.code) - \(status.reasonPhrase)</h1>
-<h3>\(headers[HttpHeader.server.rawValue].first!)</h3>
-</body>
-</html>
-"""
-            send(html: html)
-        }
+//        if status.code > 300 {
+//            let html = """
+//<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+//<html>
+//<head><title>\(status.reasonPhrase)</title></head>
+//<body>
+//<h1>\(status.code) - \(status.reasonPhrase)</h1>
+//<h3>\(headers[HttpHeader.server.rawValue].first!)</h3>
+//</body>
+//</html>
+//"""
+//            send(html: html)
+//        }
         addHeader(.contentLength, value: "\(body.readableBytes)")
         promise?.succeed(self)
     }

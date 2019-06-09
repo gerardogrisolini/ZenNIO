@@ -18,6 +18,7 @@ final class ZenNIOTests: XCTestCase {
         
         let router = Router()
         
+        /*
         // Default page (text/html)
         router.get("/") { req, res in
             let html = """
@@ -70,7 +71,6 @@ final class ZenNIOTests: XCTestCase {
             res.completed()
         }
 
-        /*
         // Default page (text/html)
         router.get("/") { req, res in
             let html = """
@@ -258,7 +258,7 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/client")
 
         // Webroot with static files (optional)
-        server.addWebroot(path: "/Users/gerardo/Projects/webroot")
+        server.addWebroot(path: "/Users/gerardo/Projects/swiftwasm.org")
         
         // CORS (optional)
         //server.addCORS()

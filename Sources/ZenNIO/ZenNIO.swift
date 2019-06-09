@@ -16,8 +16,8 @@ open class ZenNIO {
     public static var htdocsPath: String = ""
     public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
-//    public var fileIO: NonBlockingFileIO? = nil
-//    private let threadPool: NIOThreadPool
+    public var fileIO: NonBlockingFileIO? = nil
+    private let threadPool: NIOThreadPool
     private var channel: Channel?
     
     static var router = Router()
@@ -34,7 +34,7 @@ open class ZenNIO {
     ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
-//        threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
+        threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
 
         self.host = host
         self.port = port
@@ -64,10 +64,10 @@ open class ZenNIO {
     }
     
     public func start() throws {
-//        if !ZenNIO.htdocsPath.isEmpty {
-//            threadPool.start()
-//            fileIO = NonBlockingFileIO(threadPool: threadPool)
-//        }
+        if !ZenNIO.htdocsPath.isEmpty {
+            threadPool.start()
+            fileIO = NonBlockingFileIO(threadPool: threadPool)
+        }
 
         let bootstrap = ServerBootstrap(group: eventLoopGroup)
             // Specify backlog and enable SO_REUSEADDR for the server itself
@@ -86,7 +86,7 @@ open class ZenNIO {
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
         
         defer {
-//            try! threadPool.syncShutdownGracefully()
+            try! threadPool.syncShutdownGracefully()
             try! eventLoopGroup.syncShutdownGracefully()
         }
 
@@ -122,7 +122,7 @@ open class ZenNIO {
         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
             channel.pipeline.addHandlers([
                 HTTPResponseCompressor(),
-                ServerHandler()
+                ServerHandler(fileIO: self.fileIO)
             ])
         }
     }

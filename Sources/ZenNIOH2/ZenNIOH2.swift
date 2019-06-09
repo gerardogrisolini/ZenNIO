@@ -23,7 +23,7 @@ public class ZenNIOH2: ZenNIOSSL {
         return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
             //return streamChannel.pipeline.addHandler(HTTP2PushPromise(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
                 return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                    streamChannel.pipeline.addHandler(HTTP2ServerHandler())
+                    streamChannel.pipeline.addHandler(HTTP2ServerHandler(fileIO: self.fileIO))
                 }.flatMap { () -> EventLoopFuture<Void> in
                     channel.pipeline.addHandler(ErrorHandler())
                 }
