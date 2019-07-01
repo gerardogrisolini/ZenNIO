@@ -98,7 +98,7 @@ open class ServerHandler: ChannelInboundHandler {
     private func processSession(_ request: HttpRequest, _ response: HttpResponse, _ filter: Bool) -> Bool {
         var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
         if session == nil {
-            session = ZenNIO.sessions.new(id: request.clientIp, data: nil)
+            session = ZenNIO.sessions.new(id: request.clientIp)
             if request.referer.isEmpty {
                 response.addHeader(.setCookie, value: "sessionId=\(session!.id); expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;")
             }
@@ -120,9 +120,9 @@ open class ServerHandler: ChannelInboundHandler {
                 self.processCORS(request, response)
                 request.parseRequest()
                 route.handler(request, response)
-                if let session = request.session {
-                    ZenNIO.sessions.set(session: session)
-                }
+//                if let session = request.session {
+//                    ZenNIO.sessions.set(session: session)
+//                }
             }
         }
         return promise.futureResult

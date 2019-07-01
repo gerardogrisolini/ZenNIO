@@ -65,7 +65,7 @@ class Authentication {
                 
                 let account = try JSONDecoder().decode(Account.self, from: data)
                 if let uniqueID = self.handler(account.username, account.password) {
-                    let session = ZenNIO.sessions.new(id: request.session!.id, data: uniqueID)
+                    let session = ZenNIO.sessions.new(id: request.session!.id, uniqueID: uniqueID)
                     request.session = session
                     try response.send(json: session.token!)
                     response.completed()

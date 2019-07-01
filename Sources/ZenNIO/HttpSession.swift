@@ -11,7 +11,7 @@ public struct HttpSession {
     
     private var sessions = [Session]()
     
-    public mutating func new(id: String = "", data: Any? = nil) -> Session {
+    public mutating func new(id: String = "", uniqueID: Any? = nil) -> Session {
         var base64 = id
         if id.isEmpty {
             base64 = UUID().uuidString.data(using: .utf8)!.base64EncodedString()
@@ -20,7 +20,7 @@ public struct HttpSession {
         var session = Session(id: base64)
         base64 = UUID().uuidString.data(using: .utf8)!.base64EncodedString()
         session.token = Token(bearer: base64)
-        session.data = data
+        session.uniqueID = uniqueID
         
         sessions.append(session)
         
@@ -50,7 +50,7 @@ public struct HttpSession {
                 if let index = sessions.firstIndex(where: { $0.id == id }) {
                     return sessions[index]
                 }
-                return new(id: id, data: nil)
+                return new(id: id)
             }
         }
         
