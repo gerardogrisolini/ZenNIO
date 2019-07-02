@@ -9,25 +9,37 @@ import Foundation
 
 public struct HttpSession {
     
-    private var sessions = [Session]()
+    private static var sessions = [Session]()
     
-    public mutating func new(id: String = "", uniqueID: Any? = nil) -> Session {
+    static func new(id: String = "", uniqueID: Any? = nil) -> Session {
         var base64 = id
         if id.isEmpty {
             base64 = UUID().uuidString.data(using: .utf8)!.base64EncodedString()
         }
         
-        var session = Session(id: base64)
-        base64 = UUID().uuidString.data(using: .utf8)!.base64EncodedString()
-        session.token = Token(bearer: base64)
-        session.uniqueID = uniqueID
-        
-        sessions.append(session)
-        
-        return session
+        if let index = sessions.firstIndex(where: { $0.id == base64 }) {
+            if let id = uniqueID {
+                sessions[index].uniqueID = id
+                sessions[index].token = newToken()
+            }
+            return sessions[index]
+        } else {
+            var session = Session(id: base64)
+            if let id = uniqueID {
+                session.uniqueID = id
+                session.token = newToken()
+            }
+            sessions.append(session)
+            return session
+        }
     }
     
-    mutating func set(session: Session) {
+    private static func newToken() -> Token {
+        let base64 = UUID().uuidString.data(using: .utf8)!.base64EncodedString()
+        return Token(bearer: base64)
+    }
+    
+    static func set(session: Session) {
         if let index = sessions.firstIndex(where: { $0.id == session.id }) {
             sessions[index] = session
             return
@@ -35,7 +47,7 @@ public struct HttpSession {
         sessions.append(session)
     }
     
-    mutating func get(authorization: String, cookies: String) -> Session? {
+    static func get(authorization: String, cookies: String) -> Session? {
         if !authorization.isEmpty {
             let bearer = authorization.replacingOccurrences(of: "Bearer ", with: "")
             if let index = sessions.firstIndex(where: { $0.token?.bearer == bearer }) {
@@ -57,7 +69,7 @@ public struct HttpSession {
         return nil
     }
     
-    mutating func remove(id: String) {
+    static func remove(id: String) {
         sessions.removeAll { session -> Bool in
             return session.id == id
         }

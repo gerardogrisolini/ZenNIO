@@ -70,7 +70,7 @@ final class ZenNIOTests: XCTestCase {
             res.send(html: html)
             res.completed()
         }
-
+*/
         // Default page (text/html)
         router.get("/") { req, res in
             let html = """
@@ -133,7 +133,6 @@ final class ZenNIOTests: XCTestCase {
             res.send(html: html)
             res.completed()
         }
-        */
         
         // Post account (application/json) JWT required
         router.post("/api/client") { req, res in
@@ -157,7 +156,7 @@ final class ZenNIOTests: XCTestCase {
         // Get account (application/json)
         router.get("/api/client/:id") { req, res in
             do {
-                guard let id = req.getParam(Int.self, key: "id") else {
+                guard let id: Int = req.getParam("id") else {
                     throw HttpError.badRequest
                 }
          
@@ -176,8 +175,8 @@ final class ZenNIOTests: XCTestCase {
         // Post account (text/html) JWT required
         router.post("/client") { req, res in
             do {
-                guard let name = req.getParam(String.self, key: "name"),
-                    let email = req.getParam(String.self, key: "email") else {
+                guard let name: String = req.getParam("name"),
+                    let email: String = req.getParam("email") else {
                     throw HttpError.badRequest
                 }
          
@@ -191,7 +190,7 @@ final class ZenNIOTests: XCTestCase {
         // Get account (text/html)
         router.get("/client") { req, res in
             do {
-                guard let id = req.getParam(Int.self, key: "id") else {
+                guard let id: Int = req.getParam("id") else {
                     throw HttpError.badRequest
                 }
          
@@ -205,9 +204,9 @@ final class ZenNIOTests: XCTestCase {
         // Upload file (text/html) JWT required
         router.post("/upload") { req, res in
             do {
-                guard let fileName = req.getParam(String.self, key: "file"),
-                    let file = req.getParam(Data.self, key: fileName),
-                    let note = req.getParam(String.self, key: "note") else {
+                guard let fileName: String = req.getParam("file"),
+                    let file: Data = req.getParam(fileName),
+                    let note: String = req.getParam("note") else {
                         throw HttpError.badRequest
                 }
          
@@ -230,7 +229,7 @@ final class ZenNIOTests: XCTestCase {
         
         router.get("/hello/:name") { req, res in
             do {
-                guard let name = req.getParam(String.self, key: "name") else {
+                guard let name: String = req.getParam("name") else {
                     throw HttpError.badRequest
                 }
 
@@ -248,7 +247,7 @@ final class ZenNIOTests: XCTestCase {
             }
         }
 
-        let server = ZenNIOH2(router: router)
+        let server = ZenNIO(router: router)
         
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> (String?) in
@@ -258,18 +257,18 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/client")
 
         // Webroot with static files (optional)
-        server.addWebroot(path: "/Users/gerardo/Projects/swiftwasm.org")
+//        server.addWebroot(path: "/Users/gerardo/Projects/swiftwasm.org")
         
         // CORS (optional)
         //server.addCORS()
         
         // SSL (optional)
-        XCTAssertNoThrow(
-            try server.addSSL(
-                certFile: "/Users/gerardo/Projects/ZenNIO/certificate.crt",
-                keyFile: "/Users/gerardo/Projects/ZenNIO/private.pem"
-            )
-        )
+//        XCTAssertNoThrow(
+//            try server.addSSL(
+//                certFile: "/Users/gerardo/Projects/ZenNIO/certificate.crt",
+//                keyFile: "/Users/gerardo/Projects/ZenNIO/private.pem"
+//            )
+//        )
 
         XCTAssertNoThrow(try server.start())
     }

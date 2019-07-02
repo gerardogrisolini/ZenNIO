@@ -21,7 +21,6 @@ open class ZenNIO {
     private var channel: Channel?
     
     static var router = Router()
-    static var sessions = HttpSession()
     static var cors = false
     static var session = false
     

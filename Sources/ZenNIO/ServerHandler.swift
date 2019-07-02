@@ -96,14 +96,15 @@ open class ServerHandler: ChannelInboundHandler {
     }
     
     private func processSession(_ request: HttpRequest, _ response: HttpResponse, _ filter: Bool) -> Bool {
-        var session = ZenNIO.sessions.get(authorization: request.authorization, cookies: request.cookies)
-        if session == nil {
-            session = ZenNIO.sessions.new(id: request.clientIp)
-            if request.referer.isEmpty {
-                response.addHeader(.setCookie, value: "sessionId=\(session!.id); expires=Thu, 01 Jan 2050 00:00:00 UTC; path=/;")
-            }
+        if let session = HttpSession.get(authorization: request.authorization, cookies: request.cookies) {
+            request.setSession(session)
+        } else {
+            let session = HttpSession.new()
+            request.setSession(session)
+            //if request.referer.isEmpty {
+                response.addHeader(.setCookie, value: "sessionId=\(session.id); expires=Sat, 01 Jan 2050 00:00:00 UTC; path=/;")
+            //}
         }
-        request.setSession(session!)
         if filter {
             return request.isAuthenticated
         }

@@ -51,7 +51,7 @@ class Authentication {
         }
         
         router.post("/api/logout") { request, response in
-            ZenNIO.sessions.remove(id: request.session!.id)
+            HttpSession.remove(id: request.session!.id)
             response.addHeader(.setCookie, value: "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             response.addHeader(.setCookie, value: "sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             response.completed(.noContent)
@@ -65,9 +65,10 @@ class Authentication {
                 
                 let account = try JSONDecoder().decode(Account.self, from: data)
                 if let uniqueID = self.handler(account.username, account.password) {
-                    let session = ZenNIO.sessions.new(id: request.session!.id, uniqueID: uniqueID)
+                    let session = HttpSession.new(id: request.session!.id, uniqueID: uniqueID)
                     request.session = session
                     try response.send(json: session.token!)
+                    response.addHeader(.setCookie, value: "token=\(session.token!.bearer); expires=Sat, 01 Jan 2050 00:00:00 UTC; path=/;")
                     response.completed()
                 } else {
                     response.completed(.unauthorized)
@@ -117,23 +118,23 @@ protocol AuthenticationProtocol {
 struct AuthenticationProvider : AuthenticationProtocol {
     func html(ip: String) -> String {
         let content: String = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="UTF-8">
-        <title>ZenNIO - authentication</title>
-        <base href="/">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="robots" content="noindex">
-        <link rel="preload" href="/assets/logo.png" as="image">
-        <link rel="preload" href="/assets/style.css" as="style">
-        <link rel="preload" href="/assets/scripts.js" as="script">
-        <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-        <link rel="stylesheet" href="/assets/style.css">
-        <script src="/assets/scripts.js"></script>
-        </head>
-        <body onload="init()">
-        <div class="wrapper fadeInDown">
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ZenNIO - authentication</title>
+    <base href="/">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <link rel="preload" href="/assets/logo.png" as="image">
+    <link rel="preload" href="/assets/style.css" as="style">
+    <link rel="preload" href="/assets/scripts.js" as="script">
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="/assets/style.css">
+    <script src="/assets/scripts.js"></script>
+</head>
+<body onload="init()">
+    <div class="wrapper fadeInDown">
         <div id="formContent">
         <img class="fadeIn first" id="logo" alt="Logo" src="/assets/logo.png">
         <h2 class="active underlineHover"> Authentication </h2>
@@ -141,21 +142,19 @@ struct AuthenticationProvider : AuthenticationProtocol {
         <p> Hello from ZenNIO </p>
         <p> IP: \(ip) </p>
         <div id="auth"></div>
-        <div id="formFooter">
-        <a class="underlineHover" href="#">Information privacy</a>
+            <div id="formFooter">
+            <a class="underlineHover" href="#">Information privacy</a>
+            </div>
         </div>
-        </div>
-        </div>
-        </body>
-        </html>
-        
-        """
+    </div>
+</body>
+</html>
+"""
         return content
     }
     
     func script() -> Data {
         let content = """
-var token = localStorage.getItem('token');
 function signIn() {
     const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
@@ -191,7 +190,7 @@ function signOut() {
     fetch('/api/logout', {
         headers: {
             'Content-Type': 'application/json;charset=UTF-8',
-            'Authorization': token
+            'Authorization': localStorage.getItem('token')
         },
         method : 'POST',
         cache: 'no-cache'
@@ -211,7 +210,7 @@ function removeToken() {
 }
 function init() {
     var html = '';
-    if (token === null) {
+    if (localStorage.getItem('token') === null) {
 html = `
     <form>
         <input class="fadeIn second" type="text" id="username" placeholder="username"/>
@@ -221,7 +220,7 @@ html = `
 `;
     } else {
 html = `
-    <p class="fadeIn second"> ${token} </p>
+    <p class="fadeIn second"> ${localStorage.getItem('token')} </p>
     <p class="fadeIn third"> <input type="button" value="Sign Out" onclick="signOut()"/> </p>
 `;
     }

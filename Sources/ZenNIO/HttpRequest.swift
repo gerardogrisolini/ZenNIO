@@ -81,25 +81,32 @@ public class HttpRequest {
         params[key] = value
     }
     
-    public func getParam(_ type: Int.Type, key: String) -> Int? {
+    public func getParam(_ key: String) -> Int? {
         if let param = params[key] as? String {
             return Int(param)
         }
         return nil
     }
-    
-    public func getParam(_ type: UUID.Type, key: String) -> UUID? {
+
+    public func getParam(_ key: String) -> Double? {
+        if let param = params[key] as? String {
+            return Double(param)
+        }
+        return nil
+    }
+
+    public func getParam(_ key: String) -> UUID? {
         if let uuid = params[key] as? String {
             return UUID(uuidString: uuid)
         }
         return nil
     }
-    
-    public func getParam(_ type: String.Type, key: String) -> String? {
+
+    public func getParam(_ key: String) -> String? {
         return params[key] as? String
     }
-    
-    public func getParam(_ type: Data.Type, key: String) -> Data? {
+
+    public func getParam(_ key: String) -> Data? {
         return params[key] as? Data
     }
     
