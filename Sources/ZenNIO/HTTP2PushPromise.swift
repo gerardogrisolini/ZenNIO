@@ -46,7 +46,7 @@ public final class HTTP2PushPromise: ChannelOutboundHandler {
                 }
                 
                 for uri in links {
-                    let url = URL(fileURLWithPath: "\(ZenNIOH2.htdocsPath)\(uri)")
+                    let url = URL(fileURLWithPath: "\(ZenNIO.htdocsPath)\(uri)")
                     let data = try! Data(contentsOf: url)
                     
                     pushStreamID += 2

@@ -1,7 +1,5 @@
 import XCTest
 @testable import ZenNIO
-@testable import ZenNIOSSL
-@testable import ZenNIOH2
 
 final class ZenNIOTests: XCTestCase {
 

@@ -7,10 +7,12 @@
 
 import NIO
 import NIOHTTP1
+import NIOHTTP2
 import NIOHTTPCompression
+import NIOSSL
 
 open class ZenNIO {
-    public var httpProtocol: HttpProtocol = .v1
+    public let http: HttpProtocol
     public let port: Int
     public let host: String
     public static var htdocsPath: String = ""
@@ -29,6 +31,7 @@ open class ZenNIO {
         host: String = "::1",
         port: Int = 8888,
         router: Router = Router(),
+        http: HttpProtocol = .v1,
         numberOfThreads: Int = System.coreCount
     ) {
         numOfThreads = numberOfThreads
@@ -37,6 +40,7 @@ open class ZenNIO {
 
         self.host = host
         self.port = port
+        self.http = http
         ZenNIO.router = router
     }
     
@@ -111,18 +115,71 @@ open class ZenNIO {
         })
     }
     
+    
+    // HTTP
+    
+    open func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
+        if http == .v1 {
+            return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
+                channel.pipeline.addHandlers([
+                    HTTPResponseCompressor(),
+                    ServerHandler(fileIO: self.fileIO)
+                ])
+            }
+        }
+        
+        return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
+            //return streamChannel.pipeline.addHandler(HTTP2PushPromise(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
+                return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
+                    streamChannel.pipeline.addHandler(HTTP2ServerHandler(fileIO: self.fileIO))
+                }.flatMap { () -> EventLoopFuture<Void> in
+                    channel.pipeline.addHandler(ErrorHandler())
+                }
+            //}
+        }.flatMap { (_: HTTP2StreamMultiplexer) in
+            return channel.pipeline.addHandler(ErrorHandler())
+        }
+    }
+    
+    
+    // SSL
+    
+    private var sslContext: NIOSSLContext?
+    
+    public func addSSL(certFile: String, keyFile: String) throws {
+        let cert = try NIOSSLCertificate.fromPEMFile(certFile)
+        let config = TLSConfiguration.forServer(
+            certificateChain: [.certificate(cert.first!)],
+            privateKey: .file(keyFile),
+//            cipherSuites: self.cipherSuites,
+//            minimumTLSVersion: .tlsv11,
+//            maximumTLSVersion: .tlsv12,
+//            certificateVerification: .noHostnameVerification,
+//            trustRoots: .default,
+            applicationProtocols: [http.rawValue]
+        )
+        sslContext = try! NIOSSLContext(configuration: config)
+    }
+
     open func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
+        if let sslContext = sslContext {
+            return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext))
+        }
+        
         let p = channel.eventLoop.makePromise(of: Void.self)
         p.succeed(())
         return p.futureResult
     }
+
     
-    open func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
-        return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
-            channel.pipeline.addHandlers([
-                HTTPResponseCompressor(),
-                ServerHandler(fileIO: self.fileIO)
-            ])
+    // HTTP2
+    
+    final class ErrorHandler: ChannelInboundHandler {
+        typealias InboundIn = Never
+        
+        func errorCaught(context: ChannelHandlerContext, error: Error) {
+            print("Server received error: \(error)")
+            context.close(promise: nil)
         }
     }
 }
