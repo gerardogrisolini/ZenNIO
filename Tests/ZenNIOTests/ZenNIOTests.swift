@@ -16,59 +16,6 @@ final class ZenNIOTests: XCTestCase {
         
         let router = Router()
         
-        /*
-        // Default page (text/html)
-        router.get("/") { req, res in
-            let html = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>OPC-UA</title>
-    <base href="/">
-    <meta name="viewport" content="width=device-width, user-scalable=no" />
-    <link rel="stylesheet" href="style.css">
-    <script src="main.js"></script>
-</head>
-<body onload="loadContent()">
-    <h1>OPC-UA</h1>
-    <span>Id <strong id="deviceId"></strong></span>
-    <br/><span>Type <strong id="deviceType"></strong></span>
-    <div class="header-panel" id="info"></div>
-    <div id="content">
-        <img src="logo.jpg" />
-        <img src="logo1.jpg" />
-        <img src="logo.png" />
-    </div>
-    <div class="control-panel">
-        <div class="control-panel-left"><input type="checkbox" id="autoScroller" checked/> scroll to bottom</div>
-        <div class="control-panel-left">
-            <select id="frequency" onchange="changeFrequency(this.value)">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="30">30</option>
-                <option value="60">60</option>
-            </select>
-            refresh rate in seconds
-        </div>
-        <div class="control-panel-right">
-            <select id="history"></select>
-            <button onclick="showHistory()">Open</button>
-        </div>
-    </div>
-</body>
-</html>
-"""
-            res.addHeader(.link, value: "</logo.jpg>; rel=preload; as=image, </logo1.jpg>; rel=preload; as=image, </logo.png>; rel=preload; as=image,  </style.css>; rel=preload; as=style, </main.js>; rel=preload; as=script")
-//            res.addHeader(.cache, value: "no-cache")
-//            res.addHeader(.cache, value: "max-age=1440") // 1 days
-//            res.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)
-            res.send(html: html)
-            res.completed()
-        }
-*/
         // Default page (text/html)
         router.get("/") { req, res in
             let html = """
@@ -254,20 +201,20 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/api/client")
         server.setFilter(true, methods: [.POST], url: "/client")
 
-        // Webroot with static files (optional)
-        server.addWebroot(path: "/Users/gerardo/Projects/swiftwasm.org")
+//        // Webroot with static files (optional)
+//        server.addWebroot(path: "webroot")
         
-        // CORS (optional)
-        //server.addCORS()
+//        // CORS (optional)
+//        server.addCORS()
         
-        // SSL (optional)
-        XCTAssertNoThrow(
-            try server.addSSL(
-                certFile: "/Users/gerardo/Projects/ZenNIO/certificate.crt",
-                keyFile: "/Users/gerardo/Projects/ZenNIO/private.pem",
-                http: .v2
-            )
-        )
+//        // SSL (optional)
+//        XCTAssertNoThrow(
+//            try server.addSSL(
+//                certFile: "/Users/gerardo/Projects/ZenNIO/certificate.crt",
+//                keyFile: "/Users/gerardo/Projects/ZenNIO/private.pem",
+//                http: .v2
+//            )
+//        )
 
         XCTAssertNoThrow(try server.start())
     }
