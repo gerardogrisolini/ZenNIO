@@ -8,8 +8,8 @@
 import NIO
 import NIOHTTP1
 import NIOHTTP2
-import NIOHTTPCompression
 import NIOSSL
+
 
 open class ZenNIO {
     public let http: HttpProtocol
@@ -122,7 +122,7 @@ open class ZenNIO {
         if http == .v1 {
             return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
                 channel.pipeline.addHandlers([
-                    NIOHTTPRequestDecompressor(limit: .none),
+                    //NIOHTTPRequestDecompressor(limit: .none),
                     HttpResponseCompressor(),
                     ServerHandler(fileIO: self.fileIO)
                 ])
@@ -132,9 +132,7 @@ open class ZenNIO {
         return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
             //return streamChannel.pipeline.addHandler(HTTP2PushPromise(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
                 return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                    //streamChannel.pipeline.addHandler(HTTP2ServerHandler(fileIO: self.fileIO))
                     streamChannel.pipeline.addHandlers([
-                        NIOHTTPRequestDecompressor(limit: .none),
                         HttpResponseCompressor(http: .v2),
                         HTTP2ServerHandler(fileIO: self.fileIO)
                     ])

@@ -19,7 +19,6 @@ public class HTTP2ServerHandler: ServerHandler {
                 for header in response.headers {
                     head.headers.add(name: header.name.lowercased(), value: header.value)
                 }
-                head.headers.remove(name: "transfer-encoding")
                 ctx.write(self.wrapOutboundOut(.head(head)), promise: nil)
                 ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
                 self.state.responseComplete()
