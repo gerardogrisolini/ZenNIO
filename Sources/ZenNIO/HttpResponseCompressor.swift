@@ -52,7 +52,6 @@ private func qValueFromHeader<S: StringProtocol>(_ text: S) -> Float {
 /// benefit. This channel handler should be present in the pipeline only for dynamically-generated and
 /// highly-compressible content, which will see the biggest benefits from streaming compression.
 public final class HttpResponseCompressor: ChannelDuplexHandler, RemovableChannelHandler {
-    private let http: HttpProtocol
     public typealias InboundIn = HTTPServerRequestPart
     public typealias InboundOut = HTTPServerRequestPart
     public typealias OutboundIn = HTTPServerResponsePart
@@ -81,13 +80,12 @@ public final class HttpResponseCompressor: ChannelDuplexHandler, RemovableChanne
 
     private let initialByteBufferCapacity: Int
 
-    public init(http: HttpProtocol = .v1, initialByteBufferCapacity: Int = 1024) {
-        self.http = http
+    public init(initialByteBufferCapacity: Int = 1024) {
         self.initialByteBufferCapacity = initialByteBufferCapacity
     }
 
     public func handlerAdded(context: ChannelHandlerContext) {
-        pendingResponse = PartialHTTPResponse(http: http, bodyBuffer: context.channel.allocator.buffer(capacity: initialByteBufferCapacity))
+        pendingResponse = PartialHTTPResponse(bodyBuffer: context.channel.allocator.buffer(capacity: initialByteBufferCapacity))
         pendingWritePromise = context.eventLoop.makePromise()
     }
 
@@ -255,7 +253,6 @@ private struct PartialHTTPResponse {
     var body: ByteBuffer
     var end: HTTPServerResponsePart?
     private let initialBufferSize: Int
-    private let http: HttpProtocol
     
     var isCompleteResponse: Bool {
         return head != nil && end != nil
@@ -265,8 +262,7 @@ private struct PartialHTTPResponse {
         return end != nil
     }
 
-    init(http: HttpProtocol, bodyBuffer: ByteBuffer) {
-        self.http = http
+    init(bodyBuffer: ByteBuffer) {
         body = bodyBuffer
         initialBufferSize = bodyBuffer.capacity
     }
@@ -340,7 +336,7 @@ private struct PartialHTTPResponse {
             head!.headers.replaceOrAdd(name: "content-length", value: "\(bodyLength)")
         } else if head != nil && head!.status.mayHaveResponseBody {
             head!.headers.remove(name: "content-length")
-            if http == .v1 {
+            if ZenNIO.http == .v1 {
                 head!.headers.replaceOrAdd(name: "transfer-encoding", value: "chunked")
             }
         }

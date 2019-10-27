@@ -14,7 +14,7 @@ import NIOSSL
 open class ZenNIO {
     public let port: Int
     public let host: String
-    public var http: HttpProtocol = .v1
+    public static var http: HttpProtocol = .v1
     public static var htdocsPath: String = ""
     public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
@@ -117,7 +117,7 @@ open class ZenNIO {
     // HTTP
     
     open func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
-        if http == .v1 {
+        if ZenNIO.http == .v1 {
             return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
                 channel.pipeline.addHandlers([
                     //NIOHTTPRequestDecompressor(limit: .none),
@@ -131,7 +131,7 @@ open class ZenNIO {
             //return streamChannel.pipeline.addHandler(HTTP2PushPromise(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
                 return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
                     streamChannel.pipeline.addHandlers([
-                        HttpResponseCompressor(http: .v2),
+                        HttpResponseCompressor(),
                         HTTP2ServerHandler(fileIO: self.fileIO)
                     ])
                 }.flatMap { () -> EventLoopFuture<Void> in
@@ -161,7 +161,7 @@ open class ZenNIO {
             applicationProtocols: [http.rawValue]
         )
         sslContext = try! NIOSSLContext(configuration: config)
-        self.http = http
+        ZenNIO.http = http
     }
 
     open func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
