@@ -12,9 +12,9 @@ import NIOSSL
 
 
 open class ZenNIO {
-    public let http: HttpProtocol
     public let port: Int
     public let host: String
+    public var http: HttpProtocol = .v1
     public static var htdocsPath: String = ""
     public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
@@ -31,7 +31,6 @@ open class ZenNIO {
         host: String = "::1",
         port: Int = 8888,
         router: Router = Router(),
-        http: HttpProtocol = .v1,
         numberOfThreads: Int = System.coreCount
     ) {
         numOfThreads = numberOfThreads
@@ -40,7 +39,6 @@ open class ZenNIO {
 
         self.host = host
         self.port = port
-        self.http = http
         ZenNIO.router = router
     }
     
@@ -150,7 +148,7 @@ open class ZenNIO {
     
     private var sslContext: NIOSSLContext?
     
-    public func addSSL(certFile: String, keyFile: String) throws {
+    public func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
         let cert = try NIOSSLCertificate.fromPEMFile(certFile)
         let config = TLSConfiguration.forServer(
             certificateChain: [.certificate(cert.first!)],
@@ -163,6 +161,7 @@ open class ZenNIO {
             applicationProtocols: [http.rawValue]
         )
         sslContext = try! NIOSSLContext(configuration: config)
+        self.http = http
     }
 
     open func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
