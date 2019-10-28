@@ -10,6 +10,7 @@ import NIO
 import NIOHTTP1
 import NIOHTTP2
 import NIOHPACK
+import ZenNIO
 
 public final class HTTP2PushPromise: ChannelOutboundHandler {
     public typealias OutboundIn = HTTP2Frame

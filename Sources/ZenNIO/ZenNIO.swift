@@ -117,33 +117,22 @@ open class ZenNIO {
     // HTTP
     
     open func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
-        if ZenNIO.http == .v1 {
-            return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
-                channel.pipeline.addHandlers([
-                    //NIOHTTPRequestDecompressor(limit: .none),
-                    HttpResponseCompressor(),
-                    ServerHandler(fileIO: self.fileIO)
-                ])
-            }
-        }
-        
-        return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
-            //return streamChannel.pipeline.addHandler(HTTP2PushPromise(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                    streamChannel.pipeline.addHandlers([
-                        HttpResponseCompressor(),
-                        HTTP2ServerHandler(fileIO: self.fileIO)
-                    ])
-                }.flatMap { () -> EventLoopFuture<Void> in
-                    channel.pipeline.addHandlers(ErrorHandler())
-                }
-            //}
-        }.flatMap { (_: HTTP2StreamMultiplexer) in
-            return channel.pipeline.addHandler(ErrorHandler())
+        return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
+            channel.pipeline.addHandlers([
+                //NIOHTTPRequestDecompressor(limit: .none),
+                HttpResponseCompressor(),
+                ServerHandler(fileIO: self.fileIO)
+            ])
         }
     }
     
-    
+    open func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
+        let p = channel.eventLoop.makePromise(of: Void.self)
+        p.succeed(())
+        return p.futureResult
+    }
+
+    /*
     // SSL
     
     private var sslContext: NIOSSLContext?
@@ -164,15 +153,6 @@ open class ZenNIO {
         ZenNIO.http = http
     }
 
-    open func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
-        if let sslContext = sslContext {
-            return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext))
-        }
-        
-        let p = channel.eventLoop.makePromise(of: Void.self)
-        p.succeed(())
-        return p.futureResult
-    }
 
     
     // HTTP2
@@ -185,6 +165,7 @@ open class ZenNIO {
             context.close(promise: nil)
         }
     }
+    */
 }
 
 ///// Wrapping Swift.debugPrint() within DEBUG flag

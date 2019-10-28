@@ -9,7 +9,8 @@ let package = Package(
         .macOS(.v10_14)
     ],
     products: [
-        .library(name: "ZenNIO", targets: ["ZenNIO"])
+        .library(name: "ZenNIO", targets: ["ZenNIO"]),
+        .library(name: "ZenNIOSSL", targets: ["ZenNIOSSL"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
@@ -24,14 +25,20 @@ let package = Package(
                 "NIO",
                 "NIOConcurrencyHelpers",
                 "NIOHTTP1",
-                "NIOHTTP2",
                 "NIOHTTPCompression",
-                "NIOSSL"
+            ]
+        ),
+        .target(
+            name: "ZenNIOSSL",
+            dependencies: [
+                "ZenNIO",
+                "NIOSSL",
+                "NIOHTTP2"
             ]
         ),
         .testTarget(
             name: "ZenNIOTests",
-            dependencies: ["ZenNIO"]
+            dependencies: ["ZenNIO", "ZenNIOSSL"]
         )
     ],
     swiftLanguageVersions: [.v5]
