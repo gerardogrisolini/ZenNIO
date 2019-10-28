@@ -7,8 +7,6 @@
 
 import NIO
 import NIOHTTP1
-import NIOSSL
-
 
 open class ZenNIO {
     public let port: Int
