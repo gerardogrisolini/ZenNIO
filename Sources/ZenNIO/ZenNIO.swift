@@ -7,7 +7,6 @@
 
 import NIO
 import NIOHTTP1
-import NIOHTTP2
 import NIOSSL
 
 
