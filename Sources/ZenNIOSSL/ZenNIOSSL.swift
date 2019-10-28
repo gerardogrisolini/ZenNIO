@@ -17,7 +17,7 @@ private struct Holder {
 
 extension ZenNIOProtocol {
 
-    func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
+    public func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
         let cert = try NIOSSLCertificate.fromPEMFile(certFile)
         let config = TLSConfiguration.forServer(
             certificateChain: [.certificate(cert.first!)],
