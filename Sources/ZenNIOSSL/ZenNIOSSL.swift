@@ -10,11 +10,14 @@ import NIOSSL
 import NIOHTTP2
 import ZenNIO
 
-open class ZenNIOSSL: ZenNIO {
-//    public let cipherSuites = "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-CBC-SHA384:ECDHE-ECDSA-AES256-CBC-SHA:ECDHE-ECDSA-AES128-CBC-SHA256:ECDHE-ECDSA-AES128-CBC-SHA:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-CBC-SHA384:ECDHE-RSA-AES128-CBC-SHA256:ECDHE-RSA-AES128-CBC-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA"
-    public var sslContext: NIOSSLContext!
-    
-    public func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
+
+private struct Holder {
+    static var sslContext: NIOSSLContext!
+}
+
+extension ZenNIOProtocol {
+
+    func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
         let cert = try NIOSSLCertificate.fromPEMFile(certFile)
         let config = TLSConfiguration.forServer(
             certificateChain: [.certificate(cert.first!)],
@@ -26,15 +29,15 @@ open class ZenNIOSSL: ZenNIO {
 //            trustRoots: .default,
             applicationProtocols: [http.rawValue]
         )
-        sslContext = try! NIOSSLContext(configuration: config)
+        Holder.sslContext = try! NIOSSLContext(configuration: config)
         ZenNIO.http = http
     }
     
-    open override func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
-        return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext))
+    func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
+        return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: Holder.sslContext))
     }
     
-    open override func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
+    func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         if ZenNIO.http == .v1 {
             return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
                 channel.pipeline.addHandlers([

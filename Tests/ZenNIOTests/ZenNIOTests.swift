@@ -1,6 +1,6 @@
 import XCTest
-import ZenNIOSSL
-@testable import ZenNIO
+import ZenNIO
+@testable import ZenNIOSSL
 
 final class ZenNIOTests: XCTestCase {
 
@@ -193,7 +193,7 @@ final class ZenNIOTests: XCTestCase {
             }
         }
 
-        let server = ZenNIOSSL(router: router)
+        let server = ZenNIO(router: router)
         
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> (String?) in

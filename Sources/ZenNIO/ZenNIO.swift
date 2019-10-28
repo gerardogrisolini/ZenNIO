@@ -8,7 +8,13 @@
 import NIO
 import NIOHTTP1
 
-open class ZenNIO {
+public protocol ZenNIOProtocol {
+    var fileIO: NonBlockingFileIO? { get }
+    func tlsConfig(channel: Channel) -> EventLoopFuture<Void>
+    func httpConfig(channel: Channel) -> EventLoopFuture<Void>
+}
+
+open class ZenNIO: ZenNIOProtocol {
     public let port: Int
     public let host: String
     public static var http: HttpProtocol = .v1
@@ -113,7 +119,7 @@ open class ZenNIO {
     
     // HTTP
     
-    open func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
+    public func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
             channel.pipeline.addHandlers([
                 //NIOHTTPRequestDecompressor(limit: .none),
@@ -123,7 +129,7 @@ open class ZenNIO {
         }
     }
     
-    open func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
+    public func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
         let p = channel.eventLoop.makePromise(of: Void.self)
         p.succeed(())
         return p.futureResult
