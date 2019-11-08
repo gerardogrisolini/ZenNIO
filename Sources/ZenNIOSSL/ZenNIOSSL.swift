@@ -29,7 +29,7 @@ extension ZenNIOProtocol {
 //            trustRoots: .default,
             applicationProtocols: [http.rawValue]
         )
-        Holder.sslContext = try! NIOSSLContext(configuration: config)
+        Holder.sslContext = try NIOSSLContext(configuration: config)
         ZenNIO.http = http
     }
     

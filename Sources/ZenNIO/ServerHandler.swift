@@ -31,7 +31,12 @@ public enum State {
     }
 }
 
-open class ServerHandler: ChannelInboundHandler {
+public protocol ServerProtocol {
+    func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void>
+    func responseError(ctx: ChannelHandlerContext, request: (HTTPRequestHead), err: Error)
+}
+
+open class ServerHandler: ChannelInboundHandler, ServerProtocol {
     public typealias InboundIn = HTTPServerRequestPart
     public typealias OutboundOut = HTTPServerResponsePart
     
@@ -167,7 +172,7 @@ open class ServerHandler: ChannelInboundHandler {
     }
     */
 
-    fileprivate func responseError(ctx: ChannelHandlerContext, request: (HTTPRequestHead), err: Error) {
+    public func responseError(ctx: ChannelHandlerContext, request: (HTTPRequestHead), err: Error) {
         let html = """
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <html>
@@ -186,7 +191,7 @@ open class ServerHandler: ChannelInboundHandler {
         self.completeResponse(ctx, trailers: nil, promise: nil)
     }
     
-    open func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
+    public func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
         guard let fileIO = self.fileIO else {
             let p = ctx.eventLoop.makePromise(of: Void.self)
             p.fail(HttpError.fileNotFound)
