@@ -23,7 +23,7 @@ open class ZenNIO: ZenNIOProtocol {
     public let eventLoopGroup: EventLoopGroup
     public var fileIO: NonBlockingFileIO? = nil
     private let threadPool: NIOThreadPool
-    private var channel: Channel?
+    private var channel: Channel!
     
     static var router = Router()
     static var cors = false
@@ -96,9 +96,9 @@ open class ZenNIO: ZenNIOProtocol {
 
         channel = try { () -> Channel in
             return try bootstrap.bind(host: host, port: port).wait()
-            }()
+        }()
         
-        guard let localAddress = channel!.localAddress else {
+        guard let localAddress = channel.localAddress else {
             fatalError("Address was unable to bind.")
         }
         
@@ -134,41 +134,6 @@ open class ZenNIO: ZenNIOProtocol {
         p.succeed(())
         return p.futureResult
     }
-
-    /*
-    // SSL
-    
-    private var sslContext: NIOSSLContext?
-    
-    public func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
-        let cert = try NIOSSLCertificate.fromPEMFile(certFile)
-        let config = TLSConfiguration.forServer(
-            certificateChain: [.certificate(cert.first!)],
-            privateKey: .file(keyFile),
-//            cipherSuites: self.cipherSuites,
-//            minimumTLSVersion: .tlsv11,
-//            maximumTLSVersion: .tlsv12,
-//            certificateVerification: .noHostnameVerification,
-//            trustRoots: .default,
-            applicationProtocols: [http.rawValue]
-        )
-        sslContext = try! NIOSSLContext(configuration: config)
-        ZenNIO.http = http
-    }
-
-
-    
-    // HTTP2
-    
-    final class ErrorHandler: ChannelInboundHandler {
-        typealias InboundIn = Never
-        
-        func errorCaught(context: ChannelHandlerContext, error: Error) {
-            print("Server received error: \(error)")
-            context.close(promise: nil)
-        }
-    }
-    */
 }
 
 ///// Wrapping Swift.debugPrint() within DEBUG flag

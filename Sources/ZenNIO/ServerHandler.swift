@@ -163,31 +163,36 @@ open class ServerHandler: ChannelInboundHandler {
     */
 
     open func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
-        func errorResponse(_ status: HTTPResponseStatus) {
-            let response = self.httpResponseHead(request: request, status: status)
-            ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-
-            if status.code > 300 {
+        serveFile(ctx: ctx, request: request).whenComplete { result in
+            switch result {
+            case .success(_):
+                break
+            case .failure(let err):
                 let html = """
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <html>
-<head><title>\(status.reasonPhrase)</title></head>
+<head><title>\(err)</title></head>
 <body>
-<h2>ZenNIO</h2>
-<h1>\(status.code) - \(status.reasonPhrase)</h1>
+    <h1>ZenNIO</h1>
+    <h3>\(err)</h3>
 </body>
 </html>
 """
+                let response = self.httpResponseHead(request: request, status: .expectationFailed)
+                ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
                 var buffer = ctx.channel.allocator.buffer(capacity: html.count)
                 buffer.writeString(html)
                 ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
+                self.completeResponse(ctx, trailers: nil, promise: nil)
             }
-            self.completeResponse(ctx, trailers: nil, promise: nil)
         }
-
+    }
+    
+    public func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
         guard let fileIO = self.fileIO else {
-            errorResponse(.notFound)
-            return
+            let p = ctx.eventLoop.makePromise(of: Void.self)
+            p.fail(HttpError.fileNotFound)
+            return p.futureResult
         }
 
         var path = ZenNIO.htdocsPath + request.uri
@@ -195,41 +200,26 @@ open class ServerHandler: ChannelInboundHandler {
             path = path[path.startIndex...path.index(before: index)].description
         }
 
-        let fileHandleAndRegion = fileIO.openFile(path: path, eventLoop: ctx.eventLoop)
-        fileHandleAndRegion.whenFailure {
-            let status: HTTPResponseStatus
-            switch $0 {
-            case let e as IOError where e.errnoCode == ENOENT:
-                print("File not found: \(path)")
-                status = .notFound
-            case let e as IOError:
-                print("IOError: \(e.reason) - \(e.description)")
-                status = .internalServerError
-            default:
-                print("\($0): \(type(of: $0)) error")
-                status = .badRequest
-            }
-            errorResponse(status)
-        }
-        fileHandleAndRegion.whenSuccess { (file, region) in
+        return fileIO.openFile(path: path, eventLoop: ctx.eventLoop).map { (file, region) -> Void in
             var responseStarted = false
             let response = self.responseHead(request: request, fileRegion: region, contentType: path.contentType)
-            return fileIO.readChunked(fileRegion: region,
-                                      chunkSize: 32 * 1024,
-                                      allocator: ctx.channel.allocator,
-                                      eventLoop: ctx.eventLoop) { buffer in
-                                        if !responseStarted {
-                                            responseStarted = true
-                                            ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                                        }
-                                        return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
+            return fileIO.readChunked(
+                fileRegion: region,
+                chunkSize: 32 * 1024,
+                allocator: ctx.channel.allocator,
+                eventLoop: ctx.eventLoop) { buffer in
+                    if !responseStarted {
+                        responseStarted = true
+                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                    }
+                    return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
                 }.flatMap { () -> EventLoopFuture<Void> in
                     let p = ctx.eventLoop.makePromise(of: Void.self)
                     self.completeResponse(ctx, trailers: nil, promise: p)
                     return p.futureResult
                 }.flatMapError { error in
                     if !responseStarted {
-                        let response = self.httpResponseHead(request: request, status: .ok)
+                        let response = self.httpResponseHead(request: request, status: .expectationFailed)
                         ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
                         var buffer = ctx.channel.allocator.buffer(capacity: 100)
                         buffer.writeString("Fail: \(error)")
@@ -239,7 +229,7 @@ open class ServerHandler: ChannelInboundHandler {
                     } else {
                         return ctx.close()
                     }
-                }.whenComplete { (_: Result<Void, Error>) in
+                }.whenComplete { _ in
                     _ = try? file.close()
                 }
         }
