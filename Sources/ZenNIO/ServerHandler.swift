@@ -72,16 +72,21 @@ open class ServerHandler: ChannelInboundHandler {
             self.state.requestComplete()
             
             var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
-            request.clientIp = context.channel.remoteAddress!.description
-            request.eventLoop = context.eventLoop
-            
             if let route = ZenNIO.router.getRoute(request: &request) {
-                let response = processRequest(ctx: context, request: request, route: route)
-                response.whenSuccess { response in
-                    self.processResponse(ctx: context, response: response)
+                request.clientIp = context.channel.remoteAddress!.description
+                request.eventLoop = context.eventLoop
+                processRequest(ctx: context, request: request, route: route).whenComplete { res in
+                    switch res {
+                    case .success(let response):
+                        self.processResponse(ctx: context, response: response)
+                    case .failure(let err):
+                        self.responseError(ctx: context, request: request.head, err: err)
+                    }
                 }
             } else {
-                fileRequest(ctx: context, request: infoSavedRequestHead!)
+                serveFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
+                    self.responseError(ctx: context, request: request.head, err: err)
+                }
             }
         }
     }
@@ -162,13 +167,8 @@ open class ServerHandler: ChannelInboundHandler {
     }
     */
 
-    open func fileRequest(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) {
-        serveFile(ctx: ctx, request: request).whenComplete { result in
-            switch result {
-            case .success(_):
-                break
-            case .failure(let err):
-                let html = """
+    fileprivate func responseError(ctx: ChannelHandlerContext, request: (HTTPRequestHead), err: Error) {
+        let html = """
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <html>
 <head><title>\(err)</title></head>
@@ -178,17 +178,15 @@ open class ServerHandler: ChannelInboundHandler {
 </body>
 </html>
 """
-                let response = self.httpResponseHead(request: request, status: .expectationFailed)
-                ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                var buffer = ctx.channel.allocator.buffer(capacity: html.count)
-                buffer.writeString(html)
-                ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
-                self.completeResponse(ctx, trailers: nil, promise: nil)
-            }
-        }
+        let response = self.httpResponseHead(request: request, status: .expectationFailed)
+        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+        var buffer = ctx.channel.allocator.buffer(capacity: html.count)
+        buffer.writeString(html)
+        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
+        self.completeResponse(ctx, trailers: nil, promise: nil)
     }
     
-    public func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
+    open func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
         guard let fileIO = self.fileIO else {
             let p = ctx.eventLoop.makePromise(of: Void.self)
             p.fail(HttpError.fileNotFound)
