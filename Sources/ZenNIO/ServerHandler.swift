@@ -38,7 +38,7 @@ public protocol ServerProtocol {
     func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead
     func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders) -> HTTPResponseHead
     func processResponse(ctx: ChannelHandlerContext, response: HttpResponse)
-    func responseError(ctx: ChannelHandlerContext, request: (HTTPRequestHead), err: Error) -> EventLoopFuture<Void>
+    func sendErrorResponse(ctx: ChannelHandlerContext, request: (HTTPRequestHead), _ error: Error) -> EventLoopFuture<Void>
     func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?)
 }
 
@@ -63,7 +63,9 @@ open class ServerHandler: ChannelInboundHandler, ServerProtocol {
         
         let promise = self.keepAlive ? promise : (promise ?? context.eventLoop.makePromise())
         if !self.keepAlive {
-            promise!.futureResult.whenComplete { (_: Result<Void, Error>) in context.close(promise: nil) }
+            promise!.futureResult.whenComplete { (_: Result<Void, Error>) in
+                context.close(promise: nil)
+            }
         }
         context.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
     }
@@ -90,12 +92,12 @@ open class ServerHandler: ChannelInboundHandler, ServerProtocol {
                     case .success(let response):
                         self.processResponse(ctx: context, response: response)
                     case .failure(let err):
-                        _ = self.responseError(ctx: context, request: request.head, err: err)
+                        _ = self.sendErrorResponse(ctx: context, request: request.head, err)
                     }
                 }
             } else {
                 serveFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
-                    _ = self.responseError(ctx: context, request: request.head, err: err)
+                    _ = self.sendErrorResponse(ctx: context, request: request.head, err)
                 }
             }
         }
@@ -177,30 +179,45 @@ open class ServerHandler: ChannelInboundHandler, ServerProtocol {
     }
     */
 
-    public func responseError(ctx: ChannelHandlerContext, request: (HTTPRequestHead), err: Error) -> EventLoopFuture<Void> {
-        let html = """
+    public func sendErrorResponse(ctx: ChannelHandlerContext, request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {
+        var body = ctx.channel.allocator.buffer(capacity: 1024)
+        body.writeStaticString("""
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <html>
-<head><title>\(err)</title></head>
+<head><title>ZenNIO</title></head>
 <body>
     <h1>ZenNIO</h1>
-    <h3>\(err)</h3>
+""")
+        let response = { () -> HTTPResponseHead in
+            var head: HTTPResponseHead
+            switch error {
+            case let e as IOError where e.errnoCode == ENOENT:
+                body.writeStaticString("<h3>IOError (not found)</h3>")
+                head = httpResponseHead(request: request, status: .notFound)
+            case let e as IOError:
+                body.writeStaticString("<h3>IOError (other)</h3>")
+                body.writeString("<h4>\(e.description)</h4>")
+                head = httpResponseHead(request: request, status: .notFound)
+            default:
+                body.writeString("<h3>\(type(of: error)) error</h3>")
+                head = httpResponseHead(request: request, status: .internalServerError)
+            }
+            head.headers.replaceOrAdd(name: "Content-Type", value: "text/html")
+            return head
+        }()
+        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+        body.writeStaticString("""
 </body>
 </html>
-"""
-        let response = self.httpResponseHead(request: request, status: .expectationFailed)
-        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-        var buffer = ctx.channel.allocator.buffer(capacity: html.count)
-        buffer.writeString(html)
-        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
-        let p = ctx.eventLoop.makePromise(of: Void.self)
-        self.completeResponse(ctx, trailers: nil, promise: p)
-        return p.futureResult
+""")
+        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(body))), promise: nil)
+        ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
+        return ctx.channel.close()
     }
-    
+
     public func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
         guard let fileIO = self.fileIO else {
-            return self.responseError(ctx: ctx, request: request, err: HttpError.internalError)
+            return self.sendErrorResponse(ctx: ctx, request: request, HttpError.internalError)
         }
 
         var path = ZenNIO.htdocsPath + request.uri
@@ -227,7 +244,7 @@ open class ServerHandler: ChannelInboundHandler, ServerProtocol {
                     return p.futureResult
                 }.flatMapError { error in
                     if !responseStarted {
-                        return self.responseError(ctx: ctx, request: request, err: error)
+                        return self.sendErrorResponse(ctx: ctx, request: request, error)
                     } else {
                         return ctx.close()
                     }
