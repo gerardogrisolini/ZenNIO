@@ -202,20 +202,20 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/api/client")
         server.setFilter(true, methods: [.POST], url: "/client")
 
-//        // Webroot with static files (optional)
-        server.addWebroot(path: "/Users/gerardo/Downloads")
+        // Webroot with static files
+        //server.addWebroot(path: "/var/www")
         
-//        // CORS (optional)
-//        server.addCORS()
+        // CORS
+        //server.addCORS()
         
-        // SSL (optional)
-//        XCTAssertNoThrow(
-//            try server.addSSL(
-//                certFile: "/Users/gerardo/Projects/Zen/ZenNIO/certificate.crt",
-//                keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/private.pem",
-//                http: .v2
-//            )
-//        )
+        // SSL
+        //XCTAssertNoThrow(
+        //    try server.startSecure(
+        //        certFile: "/Users/gerardo/Projects/Zen/ZenNIO/certificate.crt",
+        //        keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/private.pem",
+        //        http: .v2
+        //    )
+        //)
 
         XCTAssertNoThrow(try server.start())
     }

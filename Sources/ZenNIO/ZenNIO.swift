@@ -8,13 +8,20 @@
 import NIO
 import NIOHTTP1
 
-public protocol ZenNIOProtocol {
-    var fileIO: NonBlockingFileIO? { get }
-    func tlsConfig(channel: Channel) -> EventLoopFuture<Void>
-    func httpConfig(channel: Channel) -> EventLoopFuture<Void>
-}
+//public protocol ZenNIOProtocol {
+//    var host: String { get }
+//    var port: Int { get }
+//    var numOfThreads: Int { get }
+//    var eventLoopGroup: EventLoopGroup { get }
+//    var fileIO: NonBlockingFileIO? { get set }
+//    var threadPool: NIOThreadPool? { get set }
+//    var channel: Channel! { get set }
+////    func startServer(eventLoopGroup: EventLoopGroup) throws
+////    func tlsConfig(channel: Channel) -> EventLoopFuture<Void>
+////    func httpConfig(channel: Channel) -> EventLoopFuture<Void>
+//}
 
-open class ZenNIO: ZenNIOProtocol {
+public class ZenNIO {
     public let port: Int
     public let host: String
     public static var http: HttpProtocol = .v1
@@ -22,8 +29,8 @@ open class ZenNIO: ZenNIOProtocol {
     public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
     public var fileIO: NonBlockingFileIO? = nil
-    private let threadPool: NIOThreadPool
-    private var channel: Channel!
+    public var threadPool: NIOThreadPool? = nil
+    public var channel: Channel!
     
     static var router = Router()
     static var cors = false
@@ -38,7 +45,6 @@ open class ZenNIO: ZenNIOProtocol {
     ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
-        threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
 
         self.host = host
         self.port = port
@@ -51,6 +57,12 @@ open class ZenNIO: ZenNIOProtocol {
     
     public func addWebroot(path: String = "webroot") {
         ZenNIO.htdocsPath = path
+        
+        if !ZenNIO.htdocsPath.isEmpty {
+            threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
+            threadPool!.start()
+            fileIO = NonBlockingFileIO(threadPool: threadPool!)
+        }
     }
     
     public func addCORS() {
@@ -67,10 +79,11 @@ open class ZenNIO: ZenNIOProtocol {
         ZenNIO.router.setFilter(value, methods: methods, url: url)
     }
     
+    
     public func start() throws {
-        if !ZenNIO.htdocsPath.isEmpty {
-            threadPool.start()
-            fileIO = NonBlockingFileIO(threadPool: threadPool)
+        defer {
+            try! threadPool?.syncShutdownGracefully()
+            try! eventLoopGroup.syncShutdownGracefully()
         }
 
         let bootstrap = ServerBootstrap(group: eventLoopGroup)
@@ -79,9 +92,7 @@ open class ZenNIO: ZenNIOProtocol {
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             // Set the handlers that are applied to the accepted Channels
             .childChannelInitializer { channel in
-                return self.tlsConfig(channel: channel).flatMap({ () -> EventLoopFuture<Void> in
-                    self.httpConfig(channel: channel)
-                })
+                return self.httpHandlers(channel: channel)
             }
             // Enable TCP_NODELAY and SO_REUSEADDR for the accepted Channels
             .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
@@ -89,11 +100,6 @@ open class ZenNIO: ZenNIOProtocol {
             .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 1)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
         
-        defer {
-            try! threadPool.syncShutdownGracefully()
-            try! eventLoopGroup.syncShutdownGracefully()
-        }
-
         channel = try { () -> Channel in
             return try bootstrap.bind(host: host, port: port).wait()
         }()
@@ -102,16 +108,16 @@ open class ZenNIO: ZenNIOProtocol {
             fatalError("Address was unable to bind.")
         }
         
-        print("☯️  ZenNIO started on \(localAddress) with \(numOfThreads) threads")
-        
+        print("☯️  ZenNIO started on http://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads")
+
         // This will never unblock as we don't close the ServerChannel
-        try channel!.closeFuture.wait()
+        try channel.closeFuture.wait()
     }
     
     public func stop() {
-        channel?.flush()
+        channel.flush()
         print("")
-        channel?.close().whenComplete({ result in
+        channel.close().whenComplete({ result in
             print("☯️  ZenNIO stopped")
         })
     }
@@ -119,7 +125,7 @@ open class ZenNIO: ZenNIOProtocol {
     
     // HTTP
     
-    public func httpConfig(channel: Channel) -> EventLoopFuture<Void> {
+    public func httpHandlers(channel: Channel) -> EventLoopFuture<Void> {
         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
             channel.pipeline.addHandlers([
                 //NIOHTTPRequestDecompressor(limit: .none),
@@ -127,12 +133,6 @@ open class ZenNIO: ZenNIOProtocol {
                 ServerHandler(fileIO: self.fileIO)
             ])
         }
-    }
-    
-    public func tlsConfig(channel: Channel) -> EventLoopFuture<Void> {
-        let p = channel.eventLoop.makePromise(of: Void.self)
-        p.succeed(())
-        return p.futureResult
     }
 }
 

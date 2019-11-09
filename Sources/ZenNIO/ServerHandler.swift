@@ -34,12 +34,12 @@ public enum State {
 public protocol ServerProtocol {
     @inlinable func wrapOutboundOut(_ value: HTTPServerResponsePart) -> NIOAny
     var fileIO: NonBlockingFileIO? { get }
-    func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void>
-    func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead
+//    func serveFile(ctx: ChannelHandlerContext, request: HTTPRequestHead) -> EventLoopFuture<Void>
+//    func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead
     func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders) -> HTTPResponseHead
-    func processResponse(ctx: ChannelHandlerContext, response: HttpResponse)
-    func sendErrorResponse(ctx: ChannelHandlerContext, request: (HTTPRequestHead), _ error: Error) -> EventLoopFuture<Void>
-    func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?)
+//    func processResponse(ctx: ChannelHandlerContext, response: HttpResponse)
+    func sendErrorResponse(ctx: ChannelHandlerContext, request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void>
+//    func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?)
 }
 
 open class ServerHandler: ChannelInboundHandler, ServerProtocol {
@@ -306,3 +306,41 @@ open class ServerHandler: ChannelInboundHandler, ServerProtocol {
         }
     }
 }
+
+
+extension ServerProtocol {
+    func sendErrorResponse(ctx: ChannelHandlerContext, request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {
+        var body = ctx.channel.allocator.buffer(capacity: 1024)
+        body.writeStaticString("""
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html>
+<head><title>ZenRetail</title></head>
+<body>
+    <h1>ZenRetail</h1>
+""")
+        let response = { () -> HTTPResponseHead in
+            let headers = HTTPHeaders([("Content-Type", "text/html")])
+            switch error {
+            case let e as IOError where e.errnoCode == ENOENT:
+                body.writeStaticString("<h3>IOError (not found)</h3>")
+                return httpResponseHead(request: request, status: .notFound, headers: headers)
+            case let e as IOError:
+                body.writeStaticString("<h3>IOError (other)</h3>")
+                body.writeString("<h4>\(e.description)</h4>")
+                return httpResponseHead(request: request, status: .notFound, headers: headers)
+            default:
+                body.writeString("<h3>\(type(of: error)) error</h3>")
+                return httpResponseHead(request: request, status: .internalServerError, headers: headers)
+            }
+        }()
+        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+        body.writeStaticString("""
+</body>
+</html>
+""")
+        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(body))), promise: nil)
+        ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
+        return ctx.channel.close()
+    }
+}
+
