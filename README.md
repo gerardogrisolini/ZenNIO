@@ -104,8 +104,6 @@ try server.startSecure(
 ### API
 ```
 router.get("/hello.html") { req, res in
-    self.counter += 1
-
     let context: [String : Any] = [
         "name": "World",
         "items": ["Item 1", "Item 2", "Item 3"]
