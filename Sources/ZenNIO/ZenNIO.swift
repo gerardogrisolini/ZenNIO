@@ -8,30 +8,19 @@
 import NIO
 import NIOHTTP1
 
-//public protocol ZenNIOProtocol {
-//    var host: String { get }
-//    var port: Int { get }
-//    var numOfThreads: Int { get }
-//    var eventLoopGroup: EventLoopGroup { get }
-//    var fileIO: NonBlockingFileIO? { get set }
-//    var threadPool: NIOThreadPool? { get set }
-//    var channel: Channel! { get set }
-////    func startServer(eventLoopGroup: EventLoopGroup) throws
-////    func tlsConfig(channel: Channel) -> EventLoopFuture<Void>
-////    func httpConfig(channel: Channel) -> EventLoopFuture<Void>
-//}
 
 public class ZenNIO {
     public let port: Int
     public let host: String
-    public static var http: HttpProtocol = .v1
-    public static var htdocsPath: String = ""
     public let numOfThreads: Int
     public let eventLoopGroup: EventLoopGroup
     public var fileIO: NonBlockingFileIO? = nil
     public var threadPool: NIOThreadPool? = nil
     public var channel: Channel!
-    
+    public var errorHandler: ErrorHandler? = nil
+
+    public static var http: HttpProtocol = .v1
+    public static var htdocsPath: String = ""
     static var router = Router()
     static var cors = false
     static var session = false
@@ -69,6 +58,10 @@ public class ZenNIO {
         ZenNIO.cors = true
     }
     
+    public func addError(handler: @escaping ErrorHandler) {
+        errorHandler = handler
+    }
+
     public func addAuthentication(handler: @escaping Login) {
         ZenNIO.session = true
         ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
@@ -78,7 +71,6 @@ public class ZenNIO {
     public func setFilter(_ value: Bool, methods: [HTTPMethod], url: String) {
         ZenNIO.router.setFilter(value, methods: methods, url: url)
     }
-    
     
     public func start() throws {
         defer {
@@ -92,7 +84,13 @@ public class ZenNIO {
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             // Set the handlers that are applied to the accepted Channels
             .childChannelInitializer { channel in
-                return self.httpHandlers(channel: channel)
+                return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
+                    channel.pipeline.addHandlers([
+                        //NIOHTTPRequestDecompressor(limit: .none),
+                        HttpResponseCompressor(),
+                        ServerHandler(fileIO: self.fileIO, errorHandler: self.errorHandler)
+                    ])
+                }
             }
             // Enable TCP_NODELAY and SO_REUSEADDR for the accepted Channels
             .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
@@ -120,19 +118,6 @@ public class ZenNIO {
         channel.close().whenComplete({ result in
             print("☯️  ZenNIO stopped")
         })
-    }
-    
-    
-    // HTTP
-    
-    public func httpHandlers(channel: Channel) -> EventLoopFuture<Void> {
-        return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
-            channel.pipeline.addHandlers([
-                //NIOHTTPRequestDecompressor(limit: .none),
-                HttpResponseCompressor(),
-                ServerHandler(fileIO: self.fileIO)
-            ])
-        }
     }
 }
 

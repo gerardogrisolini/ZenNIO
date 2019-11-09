@@ -31,18 +31,7 @@ public enum State {
     }
 }
 
-public protocol ServerProtocol {
-    @inlinable func wrapOutboundOut(_ value: HTTPServerResponsePart) -> NIOAny
-    var fileIO: NonBlockingFileIO? { get }
-//    func serveFile(ctx: ChannelHandlerContext, request: HTTPRequestHead) -> EventLoopFuture<Void>
-//    func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead
-    func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders) -> HTTPResponseHead
-//    func processResponse(ctx: ChannelHandlerContext, response: HttpResponse)
-    func sendErrorResponse(ctx: ChannelHandlerContext, request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void>
-//    func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?)
-}
-
-open class ServerHandler: ChannelInboundHandler, ServerProtocol {
+open class ServerHandler: ChannelInboundHandler {
     public typealias InboundIn = HTTPServerRequestPart
     public typealias OutboundOut = HTTPServerResponsePart
     
@@ -50,12 +39,14 @@ open class ServerHandler: ChannelInboundHandler, ServerProtocol {
     public var state = State.idle
     public let fileIO: NonBlockingFileIO?
     private var savedBodyBytes: [UInt8] = []
-    public var infoSavedRequestHead: HTTPRequestHead?
-    private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
-    
+    public var infoSavedRequestHead: HTTPRequestHead? = nil
+    private var httpHandler: HttpHandler? = nil
+    public var errorHandler: ErrorHandler!
 
-    public init(fileIO: NonBlockingFileIO?) {
+
+    public init(fileIO: NonBlockingFileIO?, errorHandler: ErrorHandler?) {
         self.fileIO = fileIO
+        self.errorHandler = errorHandler ?? defaultError(_:_:_:)
     }
     
     public func completeResponse(_ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?) {
@@ -92,12 +83,12 @@ open class ServerHandler: ChannelInboundHandler, ServerProtocol {
                     case .success(let response):
                         self.processResponse(ctx: context, response: response)
                     case .failure(let err):
-                        _ = self.sendErrorResponse(ctx: context, request: request.head, err)
+                        self.responseError(context, request.head, err)
                     }
                 }
             } else {
                 serveFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
-                    _ = self.sendErrorResponse(ctx: context, request: request.head, err)
+                    self.responseError(context, request.head, err)
                 }
             }
         }
@@ -146,6 +137,140 @@ open class ServerHandler: ChannelInboundHandler, ServerProtocol {
         return promise.futureResult
     }
 
+    public func defaultError(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) -> HttpResponse {
+        var html = ""
+        var status: HTTPResponseStatus
+        switch error {
+        case let e as IOError where e.errnoCode == ENOENT:
+            html += "<h3>IOError (not found)</h3>"
+            status = .notFound
+        case let e as IOError:
+            html += "<h3>IOError (other)</h3><h4>\(e.description)</h4>"
+            status = .expectationFailed
+        default:
+            html += "<h3>\(type(of: error)) error</h3>"
+            status = .internalServerError
+        }
+
+        html = """
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html>
+<head><title>ZenNIO</title></head>
+<body>
+    <h1>ZenNIO</h1>
+    \(html)
+</body>
+</html>
+"""
+        let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0))
+        response.send(html: html)
+        response.completed(status)
+        return response
+    }
+    
+    public func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
+        var head = HTTPResponseHead(version: request.version, status: status, headers: headers)
+        switch (request.isKeepAlive, request.version.major, request.version.minor) {
+        case (true, 1, 0):
+            // HTTP/1.0 and the request has 'Connection: keep-alive', we should mirror that
+            head.headers.add(name: "Connection", value: "keep-alive")
+        case (false, 1, let n) where n >= 1:
+            // HTTP/1.1 (or treated as such) and the request has 'Connection: close', we should mirror that
+            head.headers.add(name: "Connection", value: "close")
+        default:
+            // we should match the default or are dealing with some HTTP that we don't support, let's leave as is
+            ()
+        }
+        return head
+    }
+    
+    public func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
+        guard let fileIO = self.fileIO else {
+            return self.responseErrorAndContinue(ctx, request, HttpError.internalError)
+        }
+
+        var path = ZenNIO.htdocsPath + request.uri
+        if let index = path.firstIndex(of: "?") {
+            path = path[path.startIndex...path.index(before: index)].description
+        }
+
+        return fileIO.openFile(path: path, eventLoop: ctx.eventLoop).map { (file, region) -> Void in
+            var responseStarted = false
+            let response = self.responseHead(request: request, fileRegion: region, contentType: path.contentType)
+            return fileIO.readChunked(
+                fileRegion: region,
+                chunkSize: 32 * 1024,
+                allocator: ctx.channel.allocator,
+                eventLoop: ctx.eventLoop) { buffer in
+                    if !responseStarted {
+                        responseStarted = true
+                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
+                    }
+                    return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
+                }.flatMap { () -> EventLoopFuture<Void> in
+                    let p = ctx.eventLoop.makePromise(of: Void.self)
+                    self.completeResponse(ctx, trailers: nil, promise: p)
+                    return p.futureResult
+                }.flatMapError { error in
+                    if !responseStarted {
+                        return self.responseErrorAndContinue(ctx, request, error)
+                    } else {
+                        return ctx.close()
+                    }
+                }.whenComplete { _ in
+                    _ = try? file.close()
+                }
+        }
+    }
+    
+    private func responseError(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) {
+        let response = self.errorHandler(ctx, request, error)
+        self.processResponse(ctx: ctx, response: response)
+    }
+
+    private func responseErrorAndContinue(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {
+        self.responseError(ctx, request, error)
+        let p = ctx.eventLoop.makePromise(of: Void.self)
+        self.completeResponse(ctx, trailers: nil, promise: p)
+        return ctx.eventLoop.makeSucceededFuture(())
+}
+    
+    open func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
+        var response = httpResponseHead(request: request, status: .ok)
+        response.headers.add(name: "Content-Length", value: "\(region.endIndex)")
+        response.headers.add(name: "Content-Type", value: contentType)
+        return response
+    }
+    
+    open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
+        let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
+        ctx.write(self.wrapOutboundOut(.head(head)), promise: nil)
+        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
+        self.completeResponse(ctx, trailers: nil, promise: nil)
+    }
+    
+    public func channelReadComplete(context: ChannelHandlerContext) {
+        context.flush()
+    }
+    
+    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+        switch event {
+        case let evt as ChannelEvent where evt == ChannelEvent.inputClosed:
+            // The remote peer half-closed the channel. At this time, any
+            // outstanding response will now get the channel closed, and
+            // if we are idle or waiting for a request body to finish we
+            // will close the channel immediately.
+            switch self.state {
+            case .idle, .waitingForRequestBody:
+                context.close(promise: nil)
+            case .sendingResponse:
+                self.keepAlive = false
+            }
+        default:
+            context.fireUserInboundEventTriggered(event)
+        }
+    }
+    
     /*
     public func getStaticFile(uri: String) throws -> Data {
         let fileURL = URL(fileURLWithPath: "\(ZenNIO.htdocsPath)/\(uri)")
@@ -178,169 +303,4 @@ open class ServerHandler: ChannelInboundHandler, ServerProtocol {
         return promise.futureResult
     }
     */
-
-    public func sendErrorResponse(ctx: ChannelHandlerContext, request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {
-        var body = ctx.channel.allocator.buffer(capacity: 1024)
-        body.writeStaticString("""
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-<html>
-<head><title>ZenNIO</title></head>
-<body>
-    <h1>ZenNIO</h1>
-""")
-        let response = { () -> HTTPResponseHead in
-            var head: HTTPResponseHead
-            switch error {
-            case let e as IOError where e.errnoCode == ENOENT:
-                body.writeStaticString("<h3>IOError (not found)</h3>")
-                head = httpResponseHead(request: request, status: .notFound)
-            case let e as IOError:
-                body.writeStaticString("<h3>IOError (other)</h3>")
-                body.writeString("<h4>\(e.description)</h4>")
-                head = httpResponseHead(request: request, status: .notFound)
-            default:
-                body.writeString("<h3>\(type(of: error)) error</h3>")
-                head = httpResponseHead(request: request, status: .internalServerError)
-            }
-            head.headers.replaceOrAdd(name: "Content-Type", value: "text/html")
-            return head
-        }()
-        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-        body.writeStaticString("""
-</body>
-</html>
-""")
-        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(body))), promise: nil)
-        ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
-        return ctx.channel.close()
-    }
-
-    public func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
-        guard let fileIO = self.fileIO else {
-            return self.sendErrorResponse(ctx: ctx, request: request, HttpError.internalError)
-        }
-
-        var path = ZenNIO.htdocsPath + request.uri
-        if let index = path.firstIndex(of: "?") {
-            path = path[path.startIndex...path.index(before: index)].description
-        }
-
-        return fileIO.openFile(path: path, eventLoop: ctx.eventLoop).map { (file, region) -> Void in
-            var responseStarted = false
-            let response = self.responseHead(request: request, fileRegion: region, contentType: path.contentType)
-            return fileIO.readChunked(
-                fileRegion: region,
-                chunkSize: 32 * 1024,
-                allocator: ctx.channel.allocator,
-                eventLoop: ctx.eventLoop) { buffer in
-                    if !responseStarted {
-                        responseStarted = true
-                        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-                    }
-                    return ctx.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))))
-                }.flatMap { () -> EventLoopFuture<Void> in
-                    let p = ctx.eventLoop.makePromise(of: Void.self)
-                    self.completeResponse(ctx, trailers: nil, promise: p)
-                    return p.futureResult
-                }.flatMapError { error in
-                    if !responseStarted {
-                        return self.sendErrorResponse(ctx: ctx, request: request, error)
-                    } else {
-                        return ctx.close()
-                    }
-                }.whenComplete { _ in
-                    _ = try? file.close()
-                }
-        }
-    }
-    
-    open func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
-        var response = httpResponseHead(request: request, status: .ok)
-        response.headers.add(name: "Content-Length", value: "\(region.endIndex)")
-        response.headers.add(name: "Content-Type", value: contentType)
-        return response
-    }
-    
-    open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
-        let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
-        ctx.write(self.wrapOutboundOut(.head(head)), promise: nil)
-        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
-        self.completeResponse(ctx, trailers: nil, promise: nil)
-    }
- 
-    public func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
-        var head = HTTPResponseHead(version: request.version, status: status, headers: headers)
-        switch (request.isKeepAlive, request.version.major, request.version.minor) {
-        case (true, 1, 0):
-            // HTTP/1.0 and the request has 'Connection: keep-alive', we should mirror that
-            head.headers.add(name: "Connection", value: "keep-alive")
-        case (false, 1, let n) where n >= 1:
-            // HTTP/1.1 (or treated as such) and the request has 'Connection: close', we should mirror that
-            head.headers.add(name: "Connection", value: "close")
-        default:
-            // we should match the default or are dealing with some HTTP that we don't support, let's leave as is
-            ()
-        }
-        return head
-    }
-    
-    public func channelReadComplete(context: ChannelHandlerContext) {
-        context.flush()
-    }
-    
-    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
-        switch event {
-        case let evt as ChannelEvent where evt == ChannelEvent.inputClosed:
-            // The remote peer half-closed the channel. At this time, any
-            // outstanding response will now get the channel closed, and
-            // if we are idle or waiting for a request body to finish we
-            // will close the channel immediately.
-            switch self.state {
-            case .idle, .waitingForRequestBody:
-                context.close(promise: nil)
-            case .sendingResponse:
-                self.keepAlive = false
-            }
-        default:
-            context.fireUserInboundEventTriggered(event)
-        }
-    }
 }
-
-
-extension ServerProtocol {
-    func sendErrorResponse(ctx: ChannelHandlerContext, request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {
-        var body = ctx.channel.allocator.buffer(capacity: 1024)
-        body.writeStaticString("""
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-<html>
-<head><title>ZenRetail</title></head>
-<body>
-    <h1>ZenRetail</h1>
-""")
-        let response = { () -> HTTPResponseHead in
-            let headers = HTTPHeaders([("Content-Type", "text/html")])
-            switch error {
-            case let e as IOError where e.errnoCode == ENOENT:
-                body.writeStaticString("<h3>IOError (not found)</h3>")
-                return httpResponseHead(request: request, status: .notFound, headers: headers)
-            case let e as IOError:
-                body.writeStaticString("<h3>IOError (other)</h3>")
-                body.writeString("<h4>\(e.description)</h4>")
-                return httpResponseHead(request: request, status: .notFound, headers: headers)
-            default:
-                body.writeString("<h3>\(type(of: error)) error</h3>")
-                return httpResponseHead(request: request, status: .internalServerError, headers: headers)
-            }
-        }()
-        ctx.write(self.wrapOutboundOut(.head(response)), promise: nil)
-        body.writeStaticString("""
-</body>
-</html>
-""")
-        ctx.write(self.wrapOutboundOut(.body(.byteBuffer(body))), promise: nil)
-        ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
-        return ctx.channel.close()
-    }
-}
-

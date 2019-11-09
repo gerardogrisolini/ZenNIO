@@ -38,7 +38,7 @@ router.get("/hello") { req, res in
 
 router.get("/hello/:name") { req, res in
     do {
-        guard let name = req.getParam(String.self, key: "name") else {
+        guard let name: String = req.getParam("name") else {
             throw HttpError.badRequest
         }
 
@@ -64,17 +64,24 @@ server.addWebroot(path: "/var/www/html")
 // CORS (optional)
 server.addCORS()
 
-// OAuth2 (optional: http://<ip>:<port>/auth)
-server.addAuthentication(handler: { (email, password) -> (Bool) in
-    return email == "admin" && password = "admin"
+// OAuth2 (optional: default implementation in http://<ip>:<port>/auth)
+server.addAuthentication(handler: { (email, password) -> String in
+    if email == "admin" && password == "admin" {
+        return "ok"
+    }
+    return ""
 })
-server.addFilter(method: .POST, url: "/*")
-
-// SSL (optional)
-try server.addSSL(certFile: "./cert.pem", keyFile: "./key.pem", http: .v2)
+server.setFilter(true, methods: [.POST], url: "/*")
 
 // Start server
 try server.start()
+
+// Start server (SSL / HTTP2)
+try server.startSecure(
+    certFile: "/Users/gerardo/Projects/Zen/ZenNIO/certificate.crt",
+    keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/private.pem",
+    http: .v2
+)
 ```
 
 ## Example Template

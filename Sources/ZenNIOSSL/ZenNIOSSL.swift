@@ -13,7 +13,7 @@ import ZenNIO
 
 extension ZenNIO {
 
-    private func addSSL(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws -> NIOSSLContext {
+    private func addSSL(certFile: String, keyFile: String, http: HttpProtocol) throws -> NIOSSLContext {
         let cert = try NIOSSLCertificate.fromPEMFile(certFile)
         let config = TLSConfiguration.forServer(
             certificateChain: [.certificate(cert.first!)],
@@ -35,7 +35,7 @@ extension ZenNIO {
             try! eventLoopGroup.syncShutdownGracefully()
         }
 
-        let sslContext = try addSSL(certFile: certFile, keyFile: keyFile)
+        let sslContext = try addSSL(certFile: certFile, keyFile: keyFile, http: http)
         let bootstrap = ServerBootstrap(group: eventLoopGroup)
             // Specify backlog and enable SO_REUSEADDR for the server itself
             .serverChannelOption(ChannelOptions.backlog, value: 256)
@@ -48,7 +48,7 @@ extension ZenNIO {
                             channel.pipeline.addHandlers([
                                 //NIOHTTPRequestDecompressor(limit: .none),
                                 HttpResponseCompressor(),
-                                ServerHandler(fileIO: self.fileIO)
+                                ServerHandler(fileIO: self.fileIO, errorHandler: self.errorHandler)
                             ])
                         }
                     }
@@ -58,7 +58,7 @@ extension ZenNIO {
                                 streamChannel.pipeline.addHandlers([
                                     //NIOHTTPRequestDecompressor(limit: .none),
                                     HttpResponseCompressor(),
-                                    HTTP2ServerHandler(fileIO: self.fileIO)
+                                    HTTP2ServerHandler(fileIO: self.fileIO, errorHandler: self.errorHandler)
                                 ])
                             }.flatMap { () -> EventLoopFuture<Void> in
                                 channel.pipeline.addHandlers(ErrorHandler())

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NIO
 import NIOHTTP1
 
 extension HTTPMethod : Hashable {
@@ -14,7 +15,8 @@ extension HTTPMethod : Hashable {
     }
 }
 
-public typealias HttpHandler = ((HttpRequest, HttpResponse) -> ())
+public typealias HttpHandler = (HttpRequest, HttpResponse) -> ()
+public typealias ErrorHandler = (ChannelHandlerContext, HTTPRequestHead, Error) -> HttpResponse
 
 struct Route {
     var filter: Bool

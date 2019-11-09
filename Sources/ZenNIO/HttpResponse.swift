@@ -16,7 +16,7 @@ public class HttpResponse {
     public var body: ByteBuffer
     let promise: EventLoopPromise<HttpResponse>?
 
-    init(body: ByteBuffer, promise: EventLoopPromise<HttpResponse>? = nil) {
+    public init(body: ByteBuffer, promise: EventLoopPromise<HttpResponse>? = nil) {
         self.body = body
         self.promise = promise
         addHeader(.server, value: "ZenNIO")
@@ -52,19 +52,19 @@ public class HttpResponse {
     
     public func completed(_ status: HTTPResponseStatus = .ok) {
         self.status = status
-        if status.code > 300 {
-            let html = """
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-<html>
-<head><title>\(status.reasonPhrase)</title></head>
-<body>
-<h2>ZenNIO</h2>
-<h1>\(status.code) - \(status.reasonPhrase)</h1>
-</body>
-</html>
-"""
-            send(html: html)
-        }
+//        if status.code > 300 {
+//            let html = """
+//<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+//<html>
+//<head><title>\(status.reasonPhrase)</title></head>
+//<body>
+//<h2>ZenNIO</h2>
+//<h1>\(status.code) - \(status.reasonPhrase)</h1>
+//</body>
+//</html>
+//"""
+//            send(html: html)
+//        }
         addHeader(.contentLength, value: "\(body.readableBytes)")
         promise?.succeed(self)
     }

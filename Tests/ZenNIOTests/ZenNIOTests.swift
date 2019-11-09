@@ -1,4 +1,6 @@
 import XCTest
+import NIO
+import NIOHTTP1
 import ZenNIO
 @testable import ZenNIOSSL
 
@@ -193,6 +195,8 @@ final class ZenNIOTests: XCTestCase {
             }
         }
 
+        
+        // ZenNIO
         let server = ZenNIO(port: 8888, router: router)
         
         // OAuth2 (optional)
@@ -202,13 +206,47 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/api/client")
         server.setFilter(true, methods: [.POST], url: "/client")
 
-        // Webroot with static files
-        //server.addWebroot(path: "/var/www")
+        // Webroot with static files (optional)
+        server.addWebroot(path: "/Library/WebServer/Documents")
         
-        // CORS
-        //server.addCORS()
+        // CORS (optional)
+        server.addCORS()
         
-        // SSL
+        // Error handler (optional)
+        server.addError { (ctx, request, error) -> HttpResponse in
+            var html = ""
+            var status: HTTPResponseStatus
+            switch error {
+            case let e as IOError where e.errnoCode == ENOENT:
+                html += "<h3>IOError (not found)</h3>"
+                status = .notFound
+            case let e as IOError:
+                html += "<h3>IOError (other)</h3><h4>\(e.description)</h4>"
+                status = .expectationFailed
+            default:
+                html += "<h3>\(type(of: error)) error</h3>"
+                status = .internalServerError
+            }
+
+            html = """
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html>
+<head><title>ZenNIO</title></head>
+<body>
+    <h1>Test error handler</h1>
+    \(html)
+</body>
+</html>
+"""
+            let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0))
+            response.send(html: html)
+            response.completed(status)
+            return response
+        }
+
+        XCTAssertNoThrow(try server.start())
+        
+        // SSL and HTTP2 (secure mode)
         //XCTAssertNoThrow(
         //    try server.startSecure(
         //        certFile: "/Users/gerardo/Projects/Zen/ZenNIO/certificate.crt",
@@ -216,10 +254,8 @@ final class ZenNIOTests: XCTestCase {
         //        http: .v2
         //    )
         //)
-
-        XCTAssertNoThrow(try server.start())
     }
-
+    
     static var allTests = [
         ("testStartServer", testStartServer),
     ]
