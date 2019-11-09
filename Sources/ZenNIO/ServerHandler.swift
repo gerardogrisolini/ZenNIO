@@ -9,7 +9,6 @@ import Foundation
 import NIO
 import NIOHTTP1
 
-
 public enum State {
     case idle
     case waitingForRequestBody
@@ -86,10 +85,11 @@ open class ServerHandler: ChannelInboundHandler {
                         self.responseError(context, request.head, err)
                     }
                 }
-            } else {
-                serveFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
-                    self.responseError(context, request.head, err)
-                }
+                return
+            }
+
+            serveFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
+                self.responseError(context, request.head, err)
             }
         }
     }
