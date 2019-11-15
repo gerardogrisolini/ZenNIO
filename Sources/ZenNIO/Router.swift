@@ -16,7 +16,7 @@ extension HTTPMethod : Hashable {
 }
 
 public typealias HttpHandler = (HttpRequest, HttpResponse) -> ()
-public typealias ErrorHandler = (ChannelHandlerContext, HTTPRequestHead, Error) -> HttpResponse
+public typealias ErrorHandler = (ChannelHandlerContext, HTTPRequestHead, Error) -> EventLoopFuture<HttpResponse>
 
 struct Route {
     var filter: Bool

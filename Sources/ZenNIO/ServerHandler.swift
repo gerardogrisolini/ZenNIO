@@ -137,7 +137,7 @@ open class ServerHandler: ChannelInboundHandler {
         return promise.futureResult
     }
 
-    public func defaultError(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) -> HttpResponse {
+    public func defaultError(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<HttpResponse> {
         var html = ""
         var status: HTTPResponseStatus
         switch error {
@@ -165,7 +165,7 @@ open class ServerHandler: ChannelInboundHandler {
         let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0))
         response.send(html: html)
         response.completed(status)
-        return response
+        return ctx.eventLoop.makeSucceededFuture(response)
     }
     
     public func httpResponseHead(request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()) -> HTTPResponseHead {
@@ -225,7 +225,9 @@ open class ServerHandler: ChannelInboundHandler {
     
     private func responseError(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) {
         let response = self.errorHandler(ctx, request, error)
-        self.processResponse(ctx: ctx, response: response)
+        response.whenSuccess { response in
+            self.processResponse(ctx: ctx, response: response)
+        }
     }
 
     private func responseErrorAndContinue(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {

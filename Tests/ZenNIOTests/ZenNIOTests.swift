@@ -213,7 +213,7 @@ final class ZenNIOTests: XCTestCase {
         server.addCORS()
         
         // Error handler (optional)
-        server.addError { (ctx, request, error) -> HttpResponse in
+        server.addError { (ctx, request, error) -> EventLoopFuture<HttpResponse> in
             var html = ""
             var status: HTTPResponseStatus
             switch error {
@@ -241,7 +241,7 @@ final class ZenNIOTests: XCTestCase {
             let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0))
             response.send(html: html)
             response.completed(status)
-            return response
+            return ctx.eventLoop.makeSucceededFuture(response)
         }
 
         XCTAssertNoThrow(try server.start())
