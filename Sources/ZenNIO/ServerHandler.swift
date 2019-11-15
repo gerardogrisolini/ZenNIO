@@ -82,14 +82,14 @@ open class ServerHandler: ChannelInboundHandler {
                     case .success(let response):
                         self.processResponse(ctx: context, response: response)
                     case .failure(let err):
-                        self.responseError(context, request.head, err)
+                        self.responseError(context, request.head, err).whenComplete { _ in}
                     }
                 }
                 return
             }
 
             serveFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
-                self.responseError(context, request.head, err)
+                self.responseError(context, request.head, err).whenComplete { _ in}
             }
         }
     }
@@ -186,7 +186,7 @@ open class ServerHandler: ChannelInboundHandler {
     
     public func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
         guard let fileIO = self.fileIO else {
-            return self.responseErrorAndContinue(ctx, request, HttpError.internalError)
+            return self.responseError(ctx, request, HttpError.internalError)
         }
 
         var path = ZenNIO.htdocsPath + request.uri
@@ -213,7 +213,7 @@ open class ServerHandler: ChannelInboundHandler {
                     return p.futureResult
                 }.flatMapError { error in
                     if !responseStarted {
-                        return self.responseErrorAndContinue(ctx, request, error)
+                        return self.responseError(ctx, request, error)
                     } else {
                         return ctx.close()
                     }
@@ -223,20 +223,12 @@ open class ServerHandler: ChannelInboundHandler {
         }
     }
     
-    private func responseError(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) {
-        let response = self.errorHandler(ctx, request, error)
-        response.whenSuccess { response in
+    private func responseError(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {
+        return self.errorHandler(ctx, request, error).map { response -> Void in
             self.processResponse(ctx: ctx, response: response)
         }
     }
 
-    private func responseErrorAndContinue(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {
-        self.responseError(ctx, request, error)
-        let p = ctx.eventLoop.makePromise(of: Void.self)
-        self.completeResponse(ctx, trailers: nil, promise: p)
-        return ctx.eventLoop.makeSucceededFuture(())
-}
-    
     open func responseHead(request: HTTPRequestHead, fileRegion region: FileRegion, contentType: String) -> HTTPResponseHead {
         var response = httpResponseHead(request: request, status: .ok)
         response.headers.add(name: "Content-Length", value: "\(region.endIndex)")
