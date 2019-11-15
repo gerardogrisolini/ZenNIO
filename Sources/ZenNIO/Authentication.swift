@@ -6,8 +6,9 @@
 //
 
 import Foundation
+import NIO
 
-public typealias Login = ((_ username: String, _ password: String) -> (String?))
+public typealias Login = (_ username: String, _ password: String) -> EventLoopFuture<String>
 
 public struct Account : Codable {
     public var username: String = ""
@@ -59,19 +60,23 @@ class Authentication {
         
         router.post("/api/login") { request, response in
             do {
-                guard let data = request.bodyData else {
+                guard let data = request.bodyData,
+                    let account = try? JSONDecoder().decode(Account.self, from: data) else {
                     throw HttpError.badRequest
                 }
                 
-                let account = try JSONDecoder().decode(Account.self, from: data)
-                if let uniqueID = self.handler(account.username, account.password) {
-                    let session = HttpSession.new(id: request.session!.id, uniqueID: uniqueID)
-                    request.session = session
-                    try response.send(json: session.token!)
-                    response.addHeader(.setCookie, value: "token=\(session.token!.bearer); expires=Sat, 01 Jan 2050 00:00:00 UTC; path=/;")
-                    response.completed()
-                } else {
-                    response.completed(.unauthorized)
+                let login = self.handler(account.username, account.password)
+                login.whenComplete { result in
+                    switch result {
+                    case .success(let uniqueID):
+                        let session = HttpSession.new(id: request.session!.id, uniqueID: uniqueID)
+                        request.session = session
+                        try? response.send(json: session.token!)
+                        response.addHeader(.setCookie, value: "token=\(session.token!.bearer); expires=Sat, 01 Jan 2050 00:00:00 UTC; path=/;")
+                        response.completed()
+                    case .failure(_):
+                        response.completed(.unauthorized)
+                    }
                 }
             } catch HttpError.badRequest {
                 response.completed(.badRequest)

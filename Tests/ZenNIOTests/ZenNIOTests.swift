@@ -200,8 +200,8 @@ final class ZenNIOTests: XCTestCase {
         let server = ZenNIO(port: 8888, router: router)
         
         // OAuth2 (optional)
-        server.addAuthentication(handler: { (email, password) -> (String?) in
-            return email == password ? "ok" : nil
+        server.addAuthentication(handler: { (email, password) -> EventLoopFuture<String> in
+            return server.eventLoopGroup.next().makeSucceededFuture(email == password ? "ok" : "")
         })
         server.setFilter(true, methods: [.POST], url: "/api/client")
         server.setFilter(true, methods: [.POST], url: "/client")
