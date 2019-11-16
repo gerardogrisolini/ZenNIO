@@ -11,7 +11,7 @@ public struct HttpSession {
     
     private static var sessions = [Session]()
     
-    static func new(id: String = "", uniqueID: Any? = nil) -> Session {
+    public static func new(id: String = "", uniqueID: Any? = nil) -> Session {
         var base64 = id
         if id.isEmpty {
             base64 = UUID().uuidString.data(using: .utf8)!.base64EncodedString()
