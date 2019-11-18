@@ -5,6 +5,7 @@
 //  Created by admin on 20/12/2018.
 //
 
+import Dispatch
 import NIO
 import NIOHTTP1
 import struct Logging.Logger
@@ -111,8 +112,7 @@ public class ZenNIO {
         }
         
 
-        logger.info(Logger.Message(stringLiteral: "☯️ ZenNIO with \(numOfThreads) threads"))
-        let log = "▶️ Started on http://\(localAddress.ipAddress!):\(localAddress.port!)"
+        let log = "☯️  ZenNIO started on http://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads"
         logger.info(Logger.Message(stringLiteral: log))
 
         // This will never unblock as we don't close the ServerChannel
@@ -123,17 +123,18 @@ public class ZenNIO {
         channel.flush()
         print("")
         channel.close().whenComplete({ result in
-            let log = "⏹️ Stopped"
+            let log = "☯️  ZenNIO terminated"
             self.logger.info(Logger.Message(stringLiteral: log))
         })
     }
+    
+    public func run() throws {
+        signal(SIGINT, SIG_IGN)
+        let s = DispatchSource.makeSignalSource(signal: SIGINT)
+        s.setEventHandler {
+            self.stop()
+        }
+        s.resume()
+        try start()
+    }
 }
-
-///// Wrapping Swift.debugPrint() within DEBUG flag
-//func debugPrint(_ object: Any) {
-//    // Only allowing in DEBUG mode
-//    #if DEBUG
-//    Swift.print(object)
-//    #endif
-//}
-
