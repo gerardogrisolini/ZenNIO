@@ -55,10 +55,14 @@ class Authentication {
         }
         
         router.post("/api/logout") { request, response in
-            let log = Logger.Message(stringLiteral: "👎 Logout \(request.session!.uniqueID!)")
-            (ZenIoC.shared.resolve() as Logger).info(log)
-
-            HttpSession.remove(id: request.session!.id)
+            if let session = request.session {
+                if let uniqueID = session.uniqueID {
+                    let log = Logger.Message(stringLiteral: "👎 Logout \(uniqueID)")
+                    (ZenIoC.shared.resolve() as Logger).info(log)
+                }
+                HttpSession.remove(id: session.id)
+            }
+            
             response.addHeader(.setCookie, value: "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             response.addHeader(.setCookie, value: "sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             response.completed(.noContent)
