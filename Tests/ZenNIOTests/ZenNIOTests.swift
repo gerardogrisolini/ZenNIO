@@ -244,7 +244,7 @@ final class ZenNIOTests: XCTestCase {
             return ctx.eventLoop.makeSucceededFuture(response)
         }
 
-        XCTAssertNoThrow(try server.run())
+        XCTAssertNoThrow(try server.start())
         
         // SSL and HTTP2 (secure mode)
         //XCTAssertNoThrow(

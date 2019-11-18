@@ -29,7 +29,7 @@ extension ZenNIO {
         return try NIOSSLContext(configuration: config)
     }
     
-    public func startSecure(certFile: String, keyFile: String, http: HttpProtocol = .v1) throws {
+    public func startSecure(certFile: String, keyFile: String, http: HttpProtocol = .v1, signal: Bool = true) throws {
         defer {
             try! threadPool?.syncShutdownGracefully()
             try! eventLoopGroup.syncShutdownGracefully()
@@ -86,6 +86,7 @@ extension ZenNIO {
         print("☯️  ZenNIO started on https://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads")
 
         // This will never unblock as we don't close the ServerChannel
+        if signal { runSignal() }
         try channel.closeFuture.wait()
     }
 }
