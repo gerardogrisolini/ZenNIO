@@ -8,6 +8,7 @@
 import Foundation
 import NIO
 import NIOHTTP1
+import Logging
 
 public enum State {
     case idle
@@ -41,8 +42,8 @@ open class ServerHandler: ChannelInboundHandler {
     public var infoSavedRequestHead: HTTPRequestHead? = nil
     private var httpHandler: HttpHandler? = nil
     public var errorHandler: ErrorHandler!
-
-
+    private let router = ZenIoC.shared.resolve() as Router
+    
     public init(fileIO: NonBlockingFileIO?, errorHandler: ErrorHandler?) {
         self.fileIO = fileIO
         self.errorHandler = errorHandler ?? defaultError(_:_:_:)
@@ -74,22 +75,23 @@ open class ServerHandler: ChannelInboundHandler {
             self.state.requestComplete()
             
             var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
-            if let route = ZenNIO.router.getRoute(request: &request) {
-                request.clientIp = context.channel.remoteAddress!.description
-                request.eventLoop = context.eventLoop
-                processRequest(ctx: context, request: request, route: route).whenComplete { res in
-                    switch res {
-                    case .success(let response):
-                        self.processResponse(ctx: context, response: response)
-                    case .failure(let err):
-                        self.responseError(context, request.head, err).whenComplete { _ in}
-                    }
+            
+            guard let route = router.getRoute(request: &request) else {
+                serveFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
+                    self.responseError(context, request.head, err).whenComplete { _ in}
                 }
                 return
             }
 
-            serveFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
-                self.responseError(context, request.head, err).whenComplete { _ in}
+            request.clientIp = context.channel.remoteAddress!.description
+            request.eventLoop = context.eventLoop
+            processRequest(ctx: context, request: request, route: route).whenComplete { res in
+                switch res {
+                case .success(let response):
+                    self.processResponse(ctx: context, response: response)
+                case .failure(let err):
+                    self.responseError(context, request.head, err).whenComplete { _ in}
+                }
             }
         }
     }
@@ -129,9 +131,6 @@ open class ServerHandler: ChannelInboundHandler {
                 self.processCORS(request, response)
                 request.parseRequest()
                 route.handler(request, response)
-//                if let session = request.session {
-//                    ZenNIO.sessions.set(session: session)
-//                }
             }
         }
         return promise.futureResult
@@ -224,6 +223,9 @@ open class ServerHandler: ChannelInboundHandler {
     }
     
     private func responseError(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {
+        let log = Logger.Message(stringLiteral: "⚠️ \(request.method) \(request.uri) || \(error)")
+        (ZenIoC.shared.resolve() as Logger).error(log)
+        
         return self.errorHandler(ctx, request, error).map { response -> Void in
             self.processResponse(ctx: ctx, response: response)
         }

@@ -7,6 +7,7 @@
 
 import NIO
 import NIOHTTP1
+import struct Logging.Logger
 
 
 public class ZenNIO {
@@ -21,23 +22,26 @@ public class ZenNIO {
 
     public static var http: HttpProtocol = .v1
     public static var htdocsPath: String = ""
-    static var router = Router()
     static var cors = false
     static var session = false
-    
+    private let logger: Logger
     
     public init(
         host: String = "::1",
         port: Int = 8888,
         router: Router = Router(),
-        numberOfThreads: Int = System.coreCount
+        numberOfThreads: Int = System.coreCount,
+        logger: Logger = .init(label: "ZenNIO")
     ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
 
         self.host = host
         self.port = port
-        ZenNIO.router = router
+        self.logger = logger
+
+        ZenIoC.shared.register { logger as Logger }
+        ZenIoC.shared.register { router as Router }
     }
     
     deinit {
@@ -65,11 +69,11 @@ public class ZenNIO {
     public func addAuthentication(handler: @escaping Login) {
         ZenNIO.session = true
         ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
-        Authentication(handler: handler).makeRoutesAndHandlers(router: ZenNIO.router)
+        Authentication(handler: handler).makeRoutesAndHandlers()
     }
     
     public func setFilter(_ value: Bool, methods: [HTTPMethod], url: String) {
-        ZenNIO.router.setFilter(value, methods: methods, url: url)
+        (ZenIoC.shared.resolve() as Router).setFilter(value, methods: methods, url: url)
     }
     
     public func start() throws {
@@ -106,7 +110,10 @@ public class ZenNIO {
             fatalError("Address was unable to bind.")
         }
         
-        print("☯️  ZenNIO started on http://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads")
+
+        logger.info(Logger.Message(stringLiteral: "☯️ ZenNIO with \(numOfThreads) threads"))
+        let log = "▶️ Started on http://\(localAddress.ipAddress!):\(localAddress.port!)"
+        logger.info(Logger.Message(stringLiteral: log))
 
         // This will never unblock as we don't close the ServerChannel
         try channel.closeFuture.wait()
@@ -116,7 +123,8 @@ public class ZenNIO {
         channel.flush()
         print("")
         channel.close().whenComplete({ result in
-            print("☯️  ZenNIO stopped")
+            let log = "⏹️ Stopped"
+            self.logger.info(Logger.Message(stringLiteral: log))
         })
     }
 }

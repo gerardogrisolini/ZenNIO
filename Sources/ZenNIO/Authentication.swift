@@ -7,6 +7,7 @@
 
 import Foundation
 import NIO
+import Logging
 
 public typealias Login = (_ username: String, _ password: String) -> EventLoopFuture<String>
 
@@ -38,7 +39,9 @@ class Authentication {
         self.handler = handler
     }
     
-    func makeRoutesAndHandlers(router: Router) {
+    func makeRoutesAndHandlers() {
+        
+        let router = ZenIoC.shared.resolve() as Router
         
         router.get("/auth") { request, response in
             //response.addHeader(.link, value: "</assets/logo.png>; rel=preload; as=image, </assets/style.css>; rel=preload; as=style, </assets/scripts.js>; rel=preload; as=script")
@@ -52,6 +55,9 @@ class Authentication {
         }
         
         router.post("/api/logout") { request, response in
+            let log = Logger.Message(stringLiteral: "👎 Logout \(request.session!.uniqueID!)")
+            (ZenIoC.shared.resolve() as Logger).info(log)
+
             HttpSession.remove(id: request.session!.id)
             response.addHeader(.setCookie, value: "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             response.addHeader(.setCookie, value: "sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
@@ -74,6 +80,10 @@ class Authentication {
                         try? response.send(json: session.token!)
                         response.addHeader(.setCookie, value: "token=\(session.token!.bearer); expires=Sat, 01 Jan 2050 00:00:00 UTC; path=/;")
                         response.completed()
+                        
+                        let log = Logger.Message(stringLiteral: "👍 Login \(request.session!.uniqueID!)")
+                        (ZenIoC.shared.resolve() as Logger).info(log)
+
                     case .failure(_):
                         response.completed(.unauthorized)
                     }

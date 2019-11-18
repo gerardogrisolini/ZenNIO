@@ -8,6 +8,7 @@
 import Foundation
 import NIO
 import NIOHTTP1
+import Logging
 
 extension HTTPMethod : Hashable {
     public func hash(into hasher: inout Hasher) {
@@ -100,7 +101,8 @@ public class Router {
     func addHandler(method: HTTPMethod, uri: String, handler: @escaping HttpHandler) {
         var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: method, uri: uri))
         if getRoute(request: &request) != nil {
-            print("Warning: duplicated route \(method) \(uri).")
+            let log = Logger.Message(stringLiteral: "Duplicated route \(method) \(uri).")
+            (ZenIoC.shared.resolve() as Logger).warning(log)
             return
         }
         
