@@ -79,7 +79,7 @@ extension ZenNIO {
             return try bootstrap.bind(host: host, port: port).wait()
         }()
         
-        guard let localAddress = channel.localAddress else {
+        guard let localAddress = channel?.localAddress else {
             fatalError("Address was unable to bind.")
         }
         
@@ -87,7 +87,7 @@ extension ZenNIO {
 
         // This will never unblock as we don't close the ServerChannel
         if signal { runSignal() }
-        try channel.closeFuture.wait()
+        try channel?.closeFuture.wait()
     }
 }
 
