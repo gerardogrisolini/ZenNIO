@@ -19,7 +19,7 @@ public class ZenNIO {
     public let eventLoopGroup: EventLoopGroup
     public var fileIO: NonBlockingFileIO? = nil
     public var threadPool: NIOThreadPool? = nil
-    public var channel: Channel!
+    public var channel: Channel?
     public var errorHandler: ErrorHandler? = nil
 
     public static var http: HttpProtocol = .v1
@@ -115,7 +115,7 @@ public class ZenNIO {
             return try bootstrap.bind(host: host, port: port).wait()
         }()
         
-        guard let localAddress = channel.localAddress else {
+        guard let localAddress = channel?.localAddress else {
             fatalError("Address was unable to bind.")
         }
         
@@ -125,13 +125,13 @@ public class ZenNIO {
 
         // This will never unblock as we don't close the ServerChannel
         if signal { runSignal() }
-        try channel.closeFuture.wait()
+        try channel?.closeFuture.wait()
     }
     
     public func stop() {
-        channel.flush()
+        channel?.flush()
         print("")
-        channel.close().whenComplete({ result in
+        channel?.close().whenComplete({ result in
             let log = "☯️  ZenNIO terminated"
             self.logger.info(Logger.Message(stringLiteral: log))
         })
