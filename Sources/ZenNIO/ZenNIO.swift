@@ -120,7 +120,7 @@ public class ZenNIO {
         }
         
 
-        let log = "☯️  ZenNIO started on http://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads"
+        let log = "☯️ ZenNIO started on http://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads"
         logger.info(Logger.Message(stringLiteral: log))
 
         // This will never unblock as we don't close the ServerChannel
@@ -132,7 +132,7 @@ public class ZenNIO {
         channel?.flush()
         print("")
         channel?.close().whenComplete({ result in
-            let log = "☯️  ZenNIO terminated"
+            let log = "☯️ ZenNIO terminated"
             self.logger.info(Logger.Message(stringLiteral: log))
         })
     }

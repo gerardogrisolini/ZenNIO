@@ -83,7 +83,7 @@ extension ZenNIO {
             fatalError("Address was unable to bind.")
         }
         
-        print("☯️  ZenNIO started on https://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads")
+        print("☯️ ZenNIO started on https://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads")
 
         // This will never unblock as we don't close the ServerChannel
         if signal { runSignal() }
