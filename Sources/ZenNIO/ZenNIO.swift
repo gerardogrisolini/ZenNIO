@@ -8,10 +8,11 @@
 import Dispatch
 import NIO
 import NIOHTTP1
-import struct Logging.Logger
+import Logging
 
 
 public class ZenNIO {
+    public let logger: Logger
     public let port: Int
     public let host: String
     public let numOfThreads: Int
@@ -25,23 +26,21 @@ public class ZenNIO {
     public static var htdocsPath: String = ""
     static var cors = false
     static var session = false
-    private let logger: Logger
     
     public init(
         host: String = "::1",
         port: Int = 8888,
-        router: Router = Router(),
         numberOfThreads: Int = System.coreCount,
-        logger: Logger = .init(label: "ZenNIO")
+        router: Router = Router()
     ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
 
         self.host = host
         self.port = port
-        self.logger = logger
-
-        ZenIoC.shared.register { logger as Logger }
+        self.logger = .init(label: "ZenNIO")
+        
+        ZenIoC.shared.register { self.logger as Logger }
         ZenIoC.shared.register { router as Router }
     }
     

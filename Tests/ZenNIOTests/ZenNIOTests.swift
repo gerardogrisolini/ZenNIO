@@ -198,6 +198,7 @@ final class ZenNIOTests: XCTestCase {
         
         // ZenNIO
         let server = ZenNIO(port: 8888, router: router)
+        server.logger.logLevel = .trace
         
         // OAuth2 (optional)
         server.addAuthentication(handler: { (email, password) -> EventLoopFuture<String> in
