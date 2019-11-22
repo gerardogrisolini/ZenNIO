@@ -42,14 +42,14 @@ class Authentication {
     func makeRoutesAndHandlers() {
         
         let router = ZenIoC.shared.resolve() as Router
-        
+
         router.get("/auth") { request, response in
             //response.addHeader(.link, value: "</assets/logo.png>; rel=preload; as=image, </assets/style.css>; rel=preload; as=style, </assets/scripts.js>; rel=preload; as=script")
             //response.addHeader(.cache, value: "no-cache")
             //response.addHeader(.cache, value: "max-age=1440") // 1 days
             //response.addHeader(.expires, value: Date(timeIntervalSinceNow: TimeInterval(1440.0 * 60.0)).rfc5322Date)
             
-            let html = self.provider.html(ip: request.clientIp)
+            let html = self.provider.auth(ip: request.clientIp)
             response.send(html: html)
             response.completed()
         }
@@ -130,18 +130,18 @@ protocol AuthenticationProtocol {
     var icon: Data { get }
     var logo: Data { get }
     var style: Data { get }
-    func html(ip: String) -> String
+    func auth(ip: String) -> String
     func script() -> Data
 }
 
 struct AuthenticationProvider : AuthenticationProtocol {
-    func html(ip: String) -> String {
+    func auth(ip: String) -> String {
         let content: String = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>ZenNIO - authentication</title>
+    <title>ZenNIO - Authentication</title>
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
@@ -155,14 +155,14 @@ struct AuthenticationProvider : AuthenticationProtocol {
 <body onload="init()">
     <div class="wrapper fadeInDown">
         <div id="formContent">
-        <img class="fadeIn first" id="logo" alt="Logo" src="/assets/logo.png">
-        <h2 class="active underlineHover"> Authentication </h2>
-        <br/>
-        <p> Hello from ZenNIO </p>
-        <p> IP: \(ip) </p>
-        <div id="auth"></div>
+            <img class="fadeIn first" id="logo" alt="Logo" src="/assets/logo.png">
+            <h2 class="active underlineHover"> Authentication </h2>
+            <br/>
+            <p> Welcome to ZenNIO </p>
+            <p> IP: \(ip) </p>
+            <div id="auth"></div>
             <div id="formFooter">
-            <a class="underlineHover" href="#">Information privacy</a>
+                <a class="underlineHover" href="#">Information privacy</a>
             </div>
         </div>
     </div>

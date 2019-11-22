@@ -81,6 +81,7 @@ final class ZenNIOTests: XCTestCase {
             res.send(html: html)
             res.completed()
         }
+        */
         
         // Post account (application/json) JWT required
         router.post("/api/client") { req, res in

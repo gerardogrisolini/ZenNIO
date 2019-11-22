@@ -119,6 +119,7 @@ public class ZenNIO {
             fatalError("Address was unable to bind.")
         }
         
+        (ZenIoC.shared.resolve() as Router).addDefaultPage()
 
         let log = "☯️ ZenNIO started on http://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads"
         logger.info(Logger.Message(stringLiteral: log))
