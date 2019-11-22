@@ -266,37 +266,4 @@ open class ServerHandler: ChannelInboundHandler {
             context.fireUserInboundEventTriggered(event)
         }
     }
-    
-    /*
-    public func getStaticFile(uri: String) throws -> Data {
-        let fileURL = URL(fileURLWithPath: "\(ZenNIO.htdocsPath)/\(uri)")
-        do {
-            return try Data(contentsOf: fileURL)
-        } catch {
-            throw HttpError.fileNotFound
-        }
-    }
-
-    private func processFileRequest(ctx: ChannelHandlerContext, request: HttpRequest) -> EventLoopFuture<HttpResponse> {
-        let promise = request.eventLoop.makePromise(of: HttpResponse.self)
-        request.eventLoop.execute {
-            let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0), promise: promise)
-
-            var path = request.url
-            if let index = path.firstIndex(of: "?") {
-                path = path[path.startIndex...path.index(before: index)].description
-            }
-
-            do {
-                let data = try self.getStaticFile(uri: path)
-                response.addHeader(.contentType, value: path.contentType)
-                response.send(data: data)
-                response.completed()
-            } catch {
-                response.completed(.notFound)
-            }
-        }
-        return promise.futureResult
-    }
-    */
 }
