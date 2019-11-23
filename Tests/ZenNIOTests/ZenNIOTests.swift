@@ -81,7 +81,6 @@ final class ZenNIOTests: XCTestCase {
             res.send(html: html)
             res.completed()
         }
-        */
         
         // Post account (application/json) JWT required
         router.post("/api/client") { req, res in
@@ -173,7 +172,7 @@ final class ZenNIOTests: XCTestCase {
 
         router.get("/hello") { req, res in
             res.send(text: "Hello World!")
-            res.completed()            
+            res.completed()
         }
         
         router.get("/hello/:name") { req, res in
@@ -210,10 +209,10 @@ final class ZenNIOTests: XCTestCase {
 
         // Webroot with static files (optional)
         server.addWebroot(path: "/Library/WebServer/Documents")
-        
+
         // CORS (optional)
         server.addCORS()
-        
+
         // Error handler (optional)
         server.addError { (ctx, request, error) -> EventLoopFuture<HttpResponse> in
             var html = ""

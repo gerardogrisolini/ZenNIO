@@ -68,7 +68,7 @@ public class ZenNIO {
 
     public func addAuthentication(handler: @escaping Login) {
         ZenNIO.session = true
-        ZenIoC.shared.register { AuthenticationProvider() as AuthenticationProtocol }
+        ZenIoC.shared.register { HtmlProvider() as HtmlProtocol }
         Authentication(handler: handler).makeRoutesAndHandlers()
     }
     

@@ -78,8 +78,8 @@ open class ServerHandler: ChannelInboundHandler {
             
             guard let route = router.getRoute(request: &request) else {
                 serveFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
-                    self.responseError(context, request.head, err).whenComplete { _ in}
-                }
+                        self.responseError(context, request.head, err).whenComplete { _ in}
+                    }
                 return
             }
 
@@ -185,7 +185,7 @@ open class ServerHandler: ChannelInboundHandler {
     
     public func serveFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
         guard let fileIO = self.fileIO else {
-            return self.responseError(ctx, request, HttpError.internalError)
+            return ctx.eventLoop.makeFailedFuture(IOError.init(errnoCode: ENOENT, reason: "webroot not found"))
         }
 
         var path = ZenNIO.htdocsPath + request.uri
@@ -212,7 +212,7 @@ open class ServerHandler: ChannelInboundHandler {
                     return p.futureResult
                 }.flatMapError { error in
                     if !responseStarted {
-                        return self.responseError(ctx, request, error)
+                        return ctx.eventLoop.makeFailedFuture(error)
                     } else {
                         return ctx.close()
                     }

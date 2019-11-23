@@ -122,51 +122,42 @@ public class Router {
     }
     
     func addDefaultPage() {
+        let provider: HtmlProtocol = ZenNIO.session ? ZenIoC.shared.resolve() as HtmlProtocol : HtmlProvider()
         var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/"))
-        if getRoute(request: &request) != nil { return }
+        let route = getRoute(request: &request)
 
-        let log = Logger.Message(stringLiteral: "📎 The default route is empty, will be added the default page")
-        (ZenIoC.shared.resolve() as Logger).info(log)
+        if ZenNIO.session || route == nil {
+            
+            self.get("/assets/favicon.ico") { request, response in
+                response.addHeader(.contentType, value: "image/x-icon")
+                response.send(data: provider.icon)
+                response.completed()
+            }
+                    
+            self.get("/assets/style.css") { request, response in
+                response.addHeader(.contentType, value: "text/css")
+                response.send(data: provider.style)
+                response.completed()
+            }
+            
+            self.get("/assets/logo.png") { request, response in
+                response.addHeader(.contentType, value: "image/png")
+                response.send(data: provider.logo)
+                response.completed()
+            }
 
-        self.get("/") { request, response in
-            let html = self.defaultPage(ip: request.clientIp)
-            response.send(html: html)
-            response.completed()
+            if route == nil {
+                
+                let log = Logger.Message(stringLiteral: "📎 The default route is empty, will be added the default page")
+                (ZenIoC.shared.resolve() as Logger).info(log)
+
+                self.get("/") { request, response in
+                    let html = provider.defaultPage(ip: request.clientIp)
+                    response.send(html: html)
+                    response.completed()
+                }
+            }
         }
-    }
-    
-    func defaultPage(ip: String) -> String {
-        let content: String = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title> ZenNIO </title>
-    <base href="/">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex">
-    <link rel="preload" href="/assets/logo.png" as="image">
-    <link rel="preload" href="/assets/style.css" as="style">
-    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-    <link rel="stylesheet" href="/assets/style.css">
-</head>
-<body>
-    <div class="wrapper fadeInDown">
-        <div id="formContent">
-            <img class="fadeIn first" id="logo" alt="Logo" src="/assets/logo.png">
-            <h2 class="active underlineHover"> ZenNIO </h2>
-            <p> IP: \(ip) </p>
-            <span> HTTP Server non-blocking, event-driven architecture built on top of Apple's SwiftNIO delivers high performance. </span>
-            <p>&nbsp;</p>
-            <div id="formFooter">
-                <a class="underlineHover" href="https://github.com/gerardogrisolini/ZenNIO">Information</a>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-"""
-        return content
     }
 }
 
