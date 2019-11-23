@@ -39,7 +39,7 @@ server.addWebroot(path: "/Library/WebServer/Documents")
 server.addCORS()
 ```
 
-### Authentication and Filters ( http://<host>:<port>/auth )
+### Authentication and Filters ( http://<<host>>:<<port>>/auth )
 
 ```
 server.addAuthentication(handler: { (email, password) -> String in
@@ -94,8 +94,8 @@ try server.start()
 
 ```
 try server.startSecure(
-    certFile: "/Users/gerardo/Projects/Zen/ZenNIO/certificate.crt",
-    keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/private.pem",
+    certFile: "certificate.crt",
+    keyFile: "private.pem",
     http: .v2
 )
 ```
