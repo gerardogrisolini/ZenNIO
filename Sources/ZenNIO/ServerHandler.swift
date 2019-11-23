@@ -141,38 +141,36 @@ open class ServerHandler: ChannelInboundHandler {
         var status: HTTPResponseStatus
         switch error {
         case let e as IOError where e.errnoCode == ENOENT:
-            html += "<h3>IOError (not found)</h3>"
             status = .notFound
         case let e as IOError:
-            html += "<h3>IOError (other)</h3><h4>\(e.localizedDescription)</h4>"
+            html = e.localizedDescription
             status = .expectationFailed
         case let e as HttpError:
             switch e {
             case .badRequest(let reason):
                 status = .badRequest
-                html += "<h3>\(status.code) - \(status.reasonPhrase)</h3><h4>\(reason)</h4>"
+                html = reason
             case .internalError(let reason):
                 status = .internalServerError
-                html += "<h3>\(status.code) - \(status.reasonPhrase)</h3><h4>\(reason)</h4>"
+                html = reason
             case .notFound:
                 status = .notFound
-                html += "<h3>\(status.code) - \(status.reasonPhrase)</h3>"
             case .custom(let code, let reason):
                 status = .custom(code: code, reasonPhrase: reason)
-                html += "<h3>\(status.code) - \(status.reasonPhrase)</h3>"
             }
         default:
-            html += "<h3>\(type(of: error)) error</h3>"
+            html = error.localizedDescription
             status = .internalServerError
         }
-
+        
         html = """
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <html>
 <head><title>ZenNIO</title></head>
 <body>
     <h1>ZenNIO</h1>
-    \(html)
+    <h3>\(status.code) - \(status.reasonPhrase)</h3>
+    <h4>\(html)</h4>
 </body>
 </html>
 """
