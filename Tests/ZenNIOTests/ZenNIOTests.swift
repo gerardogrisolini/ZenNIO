@@ -177,7 +177,7 @@ final class ZenNIOTests: XCTestCase {
 
         
         // ZenNIO
-        let server = ZenNIO(port: 8888, router: router)
+        let server = ZenNIO(numberOfThreads: 2, router: router)
         server.logger.logLevel = .trace
         
         // OAuth2 (optional)

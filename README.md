@@ -13,108 +13,89 @@ HTTP Server for IoT
 
 ### Getting Started
 
+ZenNIO primarily uses SwiftPM as its build tool, so we recommend using that as well. If you want to depend on ZenNIO in your own project, it's as simple as adding a dependencies clause to your Package.swift:
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "2.0.0")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "2.5.0")
 ]
 ```
+and then adding the appropriate ZenNIO module(s) to your target dependencies.
 
-### Example Usage
 
+### Make server
 ```
 import ZenNIO
 
-let router = Router()
+let server = ZenNIO()
+```
+
+### Webroot with static files
+```
+server.addWebroot()
+```
+
+### CORS
+```
+server.addCORS()
+```
+
+### Authentication and Filters ( http://<host>:<port>/auth )
+
+```
+server.addAuthentication(handler: { (email, password) -> String in
+    if email == "admin" && password == "admin" {
+        return "uniqueId"
+    }
+    return ""
+})
+server.setFilter(true, methods: [.POST], url: "/*")
+```
+
+### Make routes and handlers
+
+```
+let router = ZenIoC.shared.resolve() as Router
 
 router.get("/") { req, res in
     res.send(html: "<html><body><h1>Hello World!</h1></body></html>")
-    res.completed()
+    res.success()
 }
 
 router.get("/hello") { req, res in
     res.send(text: "Hello World!")
-    res.completed()
+    res.success()
 }
 
 router.get("/hello/:name") { req, res in
-    do {
-        guard let name: String = req.getParam("name") else {
-            throw HttpError.badRequest
-        }
+    guard let name: String = req.getParam("name") else {
+        return res.failure(.badRequest("parameter name"))
+    }
 
+    do {
         let json = [
             "ip": req.clientIp,
             "message": "Hello \(name)!"
         ]
         try res.send(json: json)
-        res.completed()
-    } catch HttpError.badRequest {
-        res.completed(.badRequest)
+        res.success()
     } catch {
-        print(error)
-        res.completed(.internalServerError)
+        res.failure(.internalError(error.localizedDescription))
     }
 }
+```
 
-let server = ZenNIO(port: 8080, router: router)
+### Start server
 
-// Webroot with static files (optional)
-server.addWebroot(path: "/var/www/html")
-
-// CORS (optional)
-server.addCORS()
-
-// OAuth2 (optional: default implementation in http://<ip>:<port>/auth)
-server.addAuthentication(handler: { (email, password) -> String in
-    if email == "admin" && password == "admin" {
-        return "ok"
-    }
-    return ""
-})
-server.setFilter(true, methods: [.POST], url: "/*")
-
-// Start server
+```
 try server.start()
+```
 
-// Start server (SSL / HTTP2)
+### Start server (SSL / HTTP2)
+
+```
 try server.startSecure(
     certFile: "/Users/gerardo/Projects/Zen/ZenNIO/certificate.crt",
     keyFile: "/Users/gerardo/Projects/Zen/ZenNIO/private.pem",
     http: .v2
 )
 ```
-
-## Example Template
-
-### templates/hello.html
-```
-...
-<h1>Hello {{ name}}!</h1>
-
-<p>There are {{ items.count }} items.</p>
-
-<ul>
-    {% for item in items %}
-    <li>{{ item }}</li>
-    {% endfor %}
-</ul>
-...
-```
-
-### API
-```
-router.get("/hello.html") { req, res in
-    let context: [String : Any] = [
-        "name": "World",
-        "items": ["Item 1", "Item 2", "Item 3"]
-    ]
-    do {
-        try res.send(template: "hello.html", context: context)
-        res.completed()
-    } catch {
-        print(error)
-        res.completed(.internalServerError)
-    }
-}
-```
-
