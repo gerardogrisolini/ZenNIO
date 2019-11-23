@@ -16,7 +16,7 @@ extension HTTPMethod : Hashable {
     }
 }
 
-public typealias HttpHandler = (HttpRequest, HttpResponse) -> ()
+public typealias HttpHandler = (HttpRequest, HttpResponse) -> Void
 public typealias ErrorHandler = (ChannelHandlerContext, HTTPRequestHead, Error) -> EventLoopFuture<HttpResponse>
 
 struct Route {
@@ -72,7 +72,7 @@ public class Router {
             return Route(filter: false, pattern: request.head.uri, regex: nil, handler: { (_, response) in
                 response.headers.add(name: "Access-Control-Max-Age", value: "86400")
                 response.headers.add(name: "Content-Type", value: "text/plain; charset=utf-8")
-                response.completed(.noContent)
+                response.success(.noContent)
             }, params: [String : Array<String>.Index]())
         }
         
@@ -131,19 +131,19 @@ public class Router {
             self.get("/assets/favicon.ico") { request, response in
                 response.addHeader(.contentType, value: "image/x-icon")
                 response.send(data: provider.icon)
-                response.completed()
+                response.success()
             }
                     
             self.get("/assets/style.css") { request, response in
                 response.addHeader(.contentType, value: "text/css")
                 response.send(data: provider.style)
-                response.completed()
+                response.success()
             }
             
             self.get("/assets/logo.png") { request, response in
                 response.addHeader(.contentType, value: "image/png")
                 response.send(data: provider.logo)
-                response.completed()
+                response.success()
             }
 
             if route == nil {
@@ -154,7 +154,7 @@ public class Router {
                 self.get("/") { request, response in
                     let html = provider.defaultPage(ip: request.clientIp)
                     response.send(html: html)
-                    response.completed()
+                    response.success()
                 }
             }
         }

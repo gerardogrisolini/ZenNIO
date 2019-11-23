@@ -50,23 +50,30 @@ public class HttpResponse {
         send(data: html.data(using: .utf8)!)
     }
     
-    public func completed(_ status: HTTPResponseStatus = .ok) {
+    public func failure(_ error: HttpError) {
+        switch error {
+        case .badRequest(let reason):
+            send(data: reason.data(using: .utf8)!)
+            status = .badRequest
+        case .internalError(let reason):
+            send(data: reason.data(using: .utf8)!)
+            status = .internalServerError
+        case .notFound:
+            status = .notFound
+        case .custom(let code, let reason):
+            status = .custom(code: code, reasonPhrase: reason)
+        }
+        promise?.fail(error)
+    }
+    
+    public func success(_ status: HTTPResponseStatus = .ok) {
         self.status = status
+        
 //        if status.code > 300 {
-//            let html = """
-//<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-//<html>
-//<head><title>\(status.reasonPhrase)</title></head>
-//<body>
-//<h2>ZenNIO</h2>
-//<h1>\(status.code) - \(status.reasonPhrase)</h1>
-//</body>
-//</html>
-//"""
-//            send(html: html)
+//            failure(HttpError.custom(status.code, status.reasonPhrase))
+//        } else {
+            promise?.succeed(self)
 //        }
-        addHeader(.contentLength, value: "\(body.readableBytes)")
-        promise?.succeed(self)
     }
 }
 

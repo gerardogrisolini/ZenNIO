@@ -79,120 +79,107 @@ final class ZenNIOTests: XCTestCase {
 </html>
 """
             res.send(html: html)
-            res.completed()
+            res.success()
         }
         
         // Post account (application/json) JWT required
         router.post("/api/client") { req, res in
+            guard let id: Int = req.getParam("id"),
+                var client = try? JSONDecoder().decode(Client.self, from: Data(req.body)) else {
+                res.failure(.badRequest("body"))
+                return
+            }
+
             do {
-                guard req.body.count > 0 else {
-                    throw HttpError.badRequest
-                }
-                let data = Data(req.body)
-                var client = try JSONDecoder().decode(Client.self, from: data)
-                client.id = 10
+                client.id = id
                 try res.send(json: client)
-                res.completed()
-            } catch HttpError.badRequest {
-                res.completed(.badRequest)
+                res.success()
             } catch {
-                print(error)
-                res.completed(.internalServerError)
+                res.failure(.internalError(error.localizedDescription))
             }
         }
         
         // Get account (application/json)
         router.get("/api/client/:id") { req, res in
+            guard let id: Int = req.getParam("id") else {
+                res.failure(.badRequest("parameter id"))
+                return
+            }
+
             do {
-                guard let id: Int = req.getParam("id") else {
-                    throw HttpError.badRequest
-                }
-         
                 var client = Client()
                 client.id = id
                 try res.send(json: client)
-                res.completed()
-            } catch HttpError.badRequest {
-                res.completed(.badRequest)
+                res.success()
             } catch {
-                print(error)
-                res.completed(.internalServerError)
+                res.failure(.internalError(error.localizedDescription))
             }
         }
 
         // Post account (text/html) JWT required
         router.post("/client") { req, res in
-            do {
-                guard let name: String = req.getParam("name"),
-                    let email: String = req.getParam("email") else {
-                    throw HttpError.badRequest
-                }
-         
-                res.send(html: "<h3>name: \(name)<br/>email: \(email)</h3>")
-                res.completed()
-            } catch {
-                res.completed(.badRequest)
+            guard let name: String = req.getParam("name"),
+                let email: String = req.getParam("email") else {
+                res.failure(.badRequest("parameter name and/or email"))
+                return
             }
+
+            res.send(html: "<h3>name: \(name)<br/>email: \(email)</h3>")
+            res.success()
         }
 
         // Get account (text/html)
         router.get("/client") { req, res in
-            do {
-                guard let id: Int = req.getParam("id") else {
-                    throw HttpError.badRequest
-                }
-         
-                res.send(text: "client: \(id)")
-                res.completed()
-            } catch {
-                res.completed(.badRequest)
+            guard let id: Int = req.getParam("id") else {
+                res.failure(.badRequest("parameter id"))
+                return
             }
+
+            res.send(text: "client: \(id)")
+            res.success()
         }
 
         // Upload file (text/html) JWT required
         router.post("/upload") { req, res in
+            guard let fileName: String = req.getParam("file"),
+                let file: Data = req.getParam(fileName),
+                let note: String = req.getParam("note") else {
+                res.failure(.badRequest("parameter file and/or note"))
+                return
+            }
+
             do {
-                guard let fileName: String = req.getParam("file"),
-                    let file: Data = req.getParam(fileName),
-                    let note: String = req.getParam("note") else {
-                        throw HttpError.badRequest
-                }
-         
                 let url = URL(fileURLWithPath: "/tmp").appendingPathComponent(fileName)
                 try file.write(to: url)
                 res.send(html: "file: \(url.path)<br/>note: \(note)")
-                res.completed()
-            } catch HttpError.badRequest {
-                res.completed(.badRequest)
+                res.success()
             } catch {
-                print(error)
-                res.completed(.internalServerError)
+                res.failure(.internalError(error.localizedDescription))
             }
         }
 
         router.get("/hello") { req, res in
             res.send(text: "Hello World!")
-            res.completed()
+            res.success()
         }
         
         router.get("/hello/:name") { req, res in
-            do {
-                guard let name: String = req.getParam("name") else {
-                    throw HttpError.badRequest
-                }
+            guard let name: String = req.getParam("name") else {
+                res.failure(.badRequest("parameter name"))
+                return
+            }
 
+            do {
                 let json = [
                     "ip": req.clientIp,
                     "message": "Hello \(name)!"
                 ]
                 try res.send(json: json)
-                res.completed()
-            } catch HttpError.badRequest {
-                res.completed(.badRequest)
+                res.success()
             } catch {
-                print(error)
-                res.completed(.internalServerError)
+                res.failure(.internalError(error.localizedDescription))
             }
+
         }
 
         
@@ -207,6 +194,7 @@ final class ZenNIOTests: XCTestCase {
         server.setFilter(true, methods: [.POST], url: "/api/client")
         server.setFilter(true, methods: [.POST], url: "/client")
 
+        /*
         // Webroot with static files (optional)
         server.addWebroot(path: "/Library/WebServer/Documents")
 
@@ -225,7 +213,7 @@ final class ZenNIOTests: XCTestCase {
                 html += "<h3>IOError (other)</h3><h4>\(e.description)</h4>"
                 status = .expectationFailed
             default:
-                html += "<h3>\(type(of: error)) error</h3>"
+                html += "<h3>\(error)</h3>"
                 status = .internalServerError
             }
 
@@ -244,7 +232,8 @@ final class ZenNIOTests: XCTestCase {
             response.completed(status)
             return ctx.eventLoop.makeSucceededFuture(response)
         }
-
+        */
+        
         XCTAssertNoThrow(try server.start())
         
         // SSL and HTTP2 (secure mode)

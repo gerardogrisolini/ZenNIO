@@ -122,11 +122,11 @@ open class ServerHandler: ChannelInboundHandler {
     }
     
     private func processRequest(ctx: ChannelHandlerContext, request: HttpRequest, route: Route) -> EventLoopFuture<HttpResponse> {
-        let promise = request.eventLoop.makePromise(of: HttpResponse.self)
-        request.eventLoop.execute {
+        let promise = ctx.eventLoop.makePromise(of: HttpResponse.self)
+        ctx.eventLoop.execute {
             let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0), promise: promise)
             if ZenNIO.session && !self.processSession(request, response, route.filter) {
-                response.completed(.unauthorized)
+                response.success(.unauthorized)
             } else {
                 self.processCORS(request, response)
                 request.parseRequest()
@@ -144,8 +144,23 @@ open class ServerHandler: ChannelInboundHandler {
             html += "<h3>IOError (not found)</h3>"
             status = .notFound
         case let e as IOError:
-            html += "<h3>IOError (other)</h3><h4>\(e.description)</h4>"
+            html += "<h3>IOError (other)</h3><h4>\(e.localizedDescription)</h4>"
             status = .expectationFailed
+        case let e as HttpError:
+            switch e {
+            case .badRequest(let reason):
+                status = .badRequest
+                html += "<h3>\(status.code) - \(status.reasonPhrase)</h3><h4>\(reason)</h4>"
+            case .internalError(let reason):
+                status = .internalServerError
+                html += "<h3>\(status.code) - \(status.reasonPhrase)</h3><h4>\(reason)</h4>"
+            case .notFound:
+                status = .notFound
+                html += "<h3>\(status.code) - \(status.reasonPhrase)</h3>"
+            case .custom(let code, let reason):
+                status = .custom(code: code, reasonPhrase: reason)
+                html += "<h3>\(status.code) - \(status.reasonPhrase)</h3>"
+            }
         default:
             html += "<h3>\(type(of: error)) error</h3>"
             status = .internalServerError
@@ -163,7 +178,7 @@ open class ServerHandler: ChannelInboundHandler {
 """
         let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0))
         response.send(html: html)
-        response.completed(status)
+        response.success(status)
         return ctx.eventLoop.makeSucceededFuture(response)
     }
     

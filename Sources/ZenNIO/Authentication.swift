@@ -46,7 +46,7 @@ class Authentication {
         router.get("/assets/scripts.js") { request, response in
             response.addHeader(.contentType, value: "text/javascript")
             response.send(data: self.provider.script())
-            response.completed()
+            return response.success()
         }
 
         router.get("/auth") { request, response in
@@ -57,7 +57,7 @@ class Authentication {
             
             let html = self.provider.auth(ip: request.clientIp)
             response.send(html: html)
-            response.completed()
+            response.success()
         }
         
         router.post("/api/logout") { request, response in
@@ -71,14 +71,14 @@ class Authentication {
             
             response.addHeader(.setCookie, value: "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
             response.addHeader(.setCookie, value: "sessionId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;")
-            response.completed(.noContent)
+            response.success(.noContent)
         }
         
         router.post("/api/login") { request, response in
             do {
                 guard let data = request.bodyData,
                     let account = try? JSONDecoder().decode(Account.self, from: data) else {
-                    throw HttpError.badRequest
+                    throw HttpError.badRequest("body")
                 }
                 
                 let login = self.handler(account.username, account.password)
@@ -89,20 +89,19 @@ class Authentication {
                         request.session = session
                         try? response.send(json: session.token!)
                         response.addHeader(.setCookie, value: "token=\(session.token!.bearer); expires=Sat, 01 Jan 2050 00:00:00 UTC; path=/;")
-                        response.completed()
+                        response.success()
                         
                         let log = Logger.Message(stringLiteral: "👍 Login \(request.session!.uniqueID!)")
                         (ZenIoC.shared.resolve() as Logger).info(log)
 
                     case .failure(_):
-                        response.completed(.unauthorized)
+                        response.success(.unauthorized)
                     }
                 }
-            } catch HttpError.badRequest {
-                response.completed(.badRequest)
+            } catch HttpError.badRequest(let reason) {
+                response.failure(.badRequest(reason))
             } catch {
-                print(error)
-                response.completed(.internalServerError)
+                response.failure(.internalError(error.localizedDescription))
             }
         }
     }
