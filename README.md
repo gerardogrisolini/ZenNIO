@@ -16,7 +16,7 @@ HTTP Server for IoT
 ZenNIO primarily uses SwiftPM as its build tool, so we recommend using that as well. If you want to depend on ZenNIO in your own project, it's as simple as adding a dependencies clause to your Package.swift:
 ```
 dependencies: [
-    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "2.5.0")
+    .package(url: "https://github.com/gerardogrisolini/ZenNIO.git", from: "2.5.2")
 ]
 ```
 and then adding the appropriate ZenNIO module(s) to your target dependencies.
@@ -39,7 +39,7 @@ server.addWebroot(path: "/Library/WebServer/Documents")
 server.addCORS()
 ```
 
-### Authentication and Filters ( http://<<host>>:<<port>>/auth )
+### Authentication and Filters ( http://localhost:8888/auth )
 
 ```
 server.addAuthentication(handler: { (email, password) -> String in
