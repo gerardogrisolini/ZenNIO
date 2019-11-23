@@ -40,7 +40,6 @@ class Authentication {
     }
     
     func makeRoutesAndHandlers() {
-        
         let router = ZenIoC.shared.resolve() as Router
 
         router.get("/assets/scripts.js") { request, response in
@@ -75,33 +74,28 @@ class Authentication {
         }
         
         router.post("/api/login") { request, response in
-            do {
-                guard let data = request.bodyData,
-                    let account = try? JSONDecoder().decode(Account.self, from: data) else {
-                    throw HttpError.badRequest("body")
-                }
-                
-                let login = self.handler(account.username, account.password)
-                login.whenComplete { result in
-                    switch result {
-                    case .success(let uniqueID):
-                        let session = HttpSession.new(id: request.session!.id, uniqueID: uniqueID)
-                        request.session = session
-                        try? response.send(json: session.token!)
-                        response.addHeader(.setCookie, value: "token=\(session.token!.bearer); expires=Sat, 01 Jan 2050 00:00:00 UTC; path=/;")
-                        response.success()
-                        
-                        let log = Logger.Message(stringLiteral: "👍 Login \(request.session!.uniqueID!)")
-                        (ZenIoC.shared.resolve() as Logger).info(log)
+            guard let data = request.bodyData,
+                let account = try? JSONDecoder().decode(Account.self, from: data) else {
+                response.failure(.badRequest("body data"))
+                return
+            }
 
-                    case .failure(_):
-                        response.success(.unauthorized)
-                    }
+            let login = self.handler(account.username, account.password)
+            login.whenComplete { result in
+                switch result {
+                case .success(let uniqueID):
+                    let session = HttpSession.new(id: request.session!.id, uniqueID: uniqueID)
+                    request.session = session
+                    try? response.send(json: session.token!)
+                    response.addHeader(.setCookie, value: "token=\(session.token!.bearer); expires=Sat, 01 Jan 2050 00:00:00 UTC; path=/;")
+                    response.success()
+                    
+                    let log = Logger.Message(stringLiteral: "👍 Login \(request.session!.uniqueID!)")
+                    (ZenIoC.shared.resolve() as Logger).info(log)
+
+                case .failure(_):
+                    response.success(.unauthorized)
                 }
-            } catch HttpError.badRequest(let reason) {
-                response.failure(.badRequest(reason))
-            } catch {
-                response.failure(.internalError(error.localizedDescription))
             }
         }
     }
