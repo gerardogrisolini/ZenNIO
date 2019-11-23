@@ -10,8 +10,7 @@ import NIOHTTP1
 import NIOHTTP2
 import ZenNIO
 
-public class HTTP2ServerHandler: ServerHandler {
-        
+public class HTTP2ServerHandler: ServerHandler {        
     override public func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
         ctx.eventLoop.execute {
             ctx.channel.getOption(HTTP2StreamChannelOptions.streamID).flatMap { (streamID) -> EventLoopFuture<Void> in

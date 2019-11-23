@@ -125,9 +125,8 @@ public class Router {
         let provider: HtmlProtocol = ZenNIO.session ? ZenIoC.shared.resolve() as HtmlProtocol : HtmlProvider()
         var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/"))
         let route = getRoute(request: &request)
-
-        if ZenNIO.session || route == nil {
-            
+        
+        if route == nil || ZenNIO.session {
             self.get("/assets/favicon.ico") { request, response in
                 response.addHeader(.contentType, value: "image/x-icon")
                 response.send(data: provider.icon)
@@ -147,7 +146,6 @@ public class Router {
             }
 
             if route == nil {
-                
                 let log = Logger.Message(stringLiteral: "📎 The default route is empty, will be added the default page")
                 (ZenIoC.shared.resolve() as Logger).info(log)
 
