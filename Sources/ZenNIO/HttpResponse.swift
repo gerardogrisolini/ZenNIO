@@ -52,14 +52,16 @@ public class HttpResponse {
     
     public func failure(_ error: HttpError) {
         switch error {
+        case .unauthorized:
+            status = .unauthorized
+        case .notFound:
+            status = .notFound
         case .badRequest(let reason):
             send(data: reason.data(using: .utf8)!)
             status = .badRequest
         case .internalError(let reason):
             send(data: reason.data(using: .utf8)!)
             status = .internalServerError
-        case .notFound:
-            status = .notFound
         case .custom(let code, let reason):
             status = .custom(code: code, reasonPhrase: reason)
         }

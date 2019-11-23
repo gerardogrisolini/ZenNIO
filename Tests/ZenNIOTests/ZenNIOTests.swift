@@ -18,9 +18,14 @@ final class ZenNIOTests: XCTestCase {
         // results.
         
         let router = Router()
+
+        router.get("/hello") { req, res in
+            res.send(text: "Hello World!")
+            res.success()
+        }
         
         // Default page (text/html)
-        router.get("/") { req, res in
+        router.get("/test") { req, res in
             let html = """
 <!DOCTYPE html>
 <html>
@@ -84,14 +89,11 @@ final class ZenNIOTests: XCTestCase {
         
         // Post account (application/json) JWT required
         router.post("/api/client") { req, res in
-            guard let id: Int = req.getParam("id"),
-                var client = try? JSONDecoder().decode(Client.self, from: Data(req.body)) else {
-                res.failure(.badRequest("body"))
-                return
+            guard let client = try? JSONDecoder().decode(Client.self, from: Data(req.body)) else {
+                return res.failure(.badRequest("body data"))
             }
 
             do {
-                client.id = id
                 try res.send(json: client)
                 res.success()
             } catch {
@@ -102,8 +104,7 @@ final class ZenNIOTests: XCTestCase {
         // Get account (application/json)
         router.get("/api/client/:id") { req, res in
             guard let id: Int = req.getParam("id") else {
-                res.failure(.badRequest("parameter id"))
-                return
+                return res.failure(.badRequest("parameter id"))
             }
 
             do {
@@ -120,8 +121,7 @@ final class ZenNIOTests: XCTestCase {
         router.post("/client") { req, res in
             guard let name: String = req.getParam("name"),
                 let email: String = req.getParam("email") else {
-                res.failure(.badRequest("parameter name and/or email"))
-                return
+                return res.failure(.badRequest("parameter name and/or email"))
             }
 
             res.send(html: "<h3>name: \(name)<br/>email: \(email)</h3>")
@@ -144,8 +144,7 @@ final class ZenNIOTests: XCTestCase {
             guard let fileName: String = req.getParam("file"),
                 let file: Data = req.getParam(fileName),
                 let note: String = req.getParam("note") else {
-                res.failure(.badRequest("parameter file and/or note"))
-                return
+                return res.failure(.badRequest("parameter file and/or note"))
             }
 
             do {
@@ -157,16 +156,10 @@ final class ZenNIOTests: XCTestCase {
                 res.failure(.internalError(error.localizedDescription))
             }
         }
-
-        router.get("/hello") { req, res in
-            res.send(text: "Hello World!")
-            res.success()
-        }
         
         router.get("/hello/:name") { req, res in
             guard let name: String = req.getParam("name") else {
-                res.failure(.badRequest("parameter name"))
-                return
+                return res.failure(.badRequest("parameter name"))
             }
 
             do {

@@ -42,10 +42,11 @@ public enum HttpHeader: String  {
 }
 
 public enum HttpError: Swift.Error {
-    case custom(UInt, String)
+    case unauthorized
     case notFound
-    case internalError(String)
     case badRequest(String)
+    case internalError(String)
+    case custom(UInt, String)
 }
 
 public struct Session {

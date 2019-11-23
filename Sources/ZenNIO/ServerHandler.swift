@@ -114,7 +114,7 @@ open class ServerHandler: ChannelInboundHandler {
         ctx.eventLoop.execute {
             let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0), promise: promise)
             if ZenNIO.session && !self.processSession(request, response, route.filter) {
-                response.success(.unauthorized)
+                response.failure(.unauthorized)
             } else {
                 self.processCORS(request, response)
                 request.parseRequest()
@@ -219,14 +219,16 @@ open class ServerHandler: ChannelInboundHandler {
             status = .expectationFailed
         case let e as HttpError:
             switch e {
+            case .unauthorized:
+                status = .unauthorized
+            case .notFound:
+                status = .notFound
             case .badRequest(let reason):
                 status = .badRequest
                 html = reason
             case .internalError(let reason):
                 status = .internalServerError
                 html = reason
-            case .notFound:
-                status = .notFound
             case .custom(let code, let reason):
                 status = .custom(code: code, reasonPhrase: reason)
             }
