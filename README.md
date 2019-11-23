@@ -31,7 +31,7 @@ let server = ZenNIO()
 
 ### Webroot with static files
 ```
-server.addWebroot()
+server.addWebroot(path: "/Library/WebServer/Documents")
 ```
 
 ### CORS
@@ -56,12 +56,12 @@ server.setFilter(true, methods: [.POST], url: "/*")
 ```
 let router = ZenIoC.shared.resolve() as Router
 
-router.get("/") { req, res in
+router.get("/hello.html") { req, res in
     res.send(html: "<html><body><h1>Hello World!</h1></body></html>")
     res.success()
 }
 
-router.get("/hello") { req, res in
+router.get("/hello.txt") { req, res in
     res.send(text: "Hello World!")
     res.success()
 }
