@@ -80,7 +80,7 @@ public class Router {
         if let route = routes[request.head.method]?
             .first(where: {
                 $0.regex == nil && $0.pattern == request.url
-                    || $0.regex?.firstMatch(in: request.url, options: [], range: range) != nil
+                || $0.regex?.firstMatch(in: request.url, options: [], range: range) != nil
             }) {
             for param in route.params {
                 let value = request.paths[param.value].description

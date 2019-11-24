@@ -63,7 +63,6 @@ open class ServerHandler: ChannelInboundHandler {
             self.state.requestComplete()
             
             var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
-            
             guard let route = router.getRoute(request: &request) else {
                 processFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
                         self.responseError(context, request.head, err).whenComplete { _ in}
@@ -73,7 +72,7 @@ open class ServerHandler: ChannelInboundHandler {
 
             request.clientIp = context.channel.remoteAddress!.description
             request.eventLoop = context.eventLoop
-            processRequest(ctx: context, request: request, route: route).whenComplete { res in
+            processRequest(allocator: context.channel.allocator, request: request, route: route).whenComplete { res in
                 switch res {
                 case .success(let response):
                     self.processResponse(ctx: context, response: response)
@@ -84,7 +83,7 @@ open class ServerHandler: ChannelInboundHandler {
         }
     }
 
-    private func processCORS(_ request: HttpRequest, _ response: HttpResponse) {
+    func processCORS(_ request: HttpRequest, _ response: HttpResponse) {
         guard ZenNIO.cors else { return }
         
         response.headers.add(name: "Access-Control-Allow-Origin", value: "*")
@@ -93,7 +92,7 @@ open class ServerHandler: ChannelInboundHandler {
         response.headers.add(name: "Access-Control-Expose-Headers", value: "Content-Length,Content-Range")
     }
     
-    private func processSession(_ request: HttpRequest, _ response: HttpResponse, _ filter: Bool) -> Bool {
+    func processSession(_ request: HttpRequest, _ response: HttpResponse, _ filter: Bool) -> Bool {
         if let session = HttpSession.get(authorization: request.authorization, cookies: request.cookies) {
             request.setSession(session)
         } else {
@@ -109,10 +108,10 @@ open class ServerHandler: ChannelInboundHandler {
         return true
     }
     
-    private func processRequest(ctx: ChannelHandlerContext, request: HttpRequest, route: Route) -> EventLoopFuture<HttpResponse> {
-        let promise = ctx.eventLoop.makePromise(of: HttpResponse.self)
-        ctx.eventLoop.execute {
-            let response = HttpResponse(body: ctx.channel.allocator.buffer(capacity: 0), promise: promise)
+    func processRequest(allocator: ByteBufferAllocator, request: HttpRequest, route: Route) -> EventLoopFuture<HttpResponse> {
+        let promise = request.eventLoop.makePromise(of: HttpResponse.self)
+        request.eventLoop.execute {
+            let response = HttpResponse(body: allocator.buffer(capacity: 0), promise: promise)
             if ZenNIO.session && !self.processSession(request, response, route.filter) {
                 response.failure(.unauthorized)
             } else {
@@ -260,7 +259,6 @@ open class ServerHandler: ChannelInboundHandler {
         }
     }
 
-    
     public func channelReadComplete(context: ChannelHandlerContext) {
         context.flush()
     }

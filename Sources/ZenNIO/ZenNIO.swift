@@ -58,16 +58,20 @@ public class ZenNIO {
         }
     }
     
+    public func addSession() {
+        ZenNIO.session = true
+    }
+    
     public func addCORS() {
         ZenNIO.cors = true
     }
-    
+
     public func addError(handler: @escaping ErrorHandler) {
         errorHandler = handler
     }
 
     public func addAuthentication(handler: @escaping Login) {
-        ZenNIO.session = true
+        addSession()
         ZenIoC.shared.register { HtmlProvider() as HtmlProtocol }
         Authentication(handler: handler).makeRoutesAndHandlers()
     }
