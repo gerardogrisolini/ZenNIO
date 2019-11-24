@@ -22,17 +22,19 @@ final class ZenNIOTests: XCTestCase {
         
         
         // GET string parameter
-        router.get("/hello/:name") { req, res in
+        router.get("/hello/:name/number/:number") { req, res in
             res.success()
         }
-        request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/hello/guest"), body: [])
+        request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/hello/guest/number/11"), body: [])
         guard router.getRoute(request: &request) != nil else {
             XCTFail("route not found")
             return
         }
         let name: String? = request.getParam("name")
         XCTAssertTrue(name != nil && name! == "guest")
-        
+        let number: Int? = request.getParam("number")
+        XCTAssertTrue(number != nil && number! == 11)
+
         
         // POST json body data
         router.post("/api/client") { req, res in
@@ -147,6 +149,68 @@ final class ZenNIOTests: XCTestCase {
         XCTAssertFalse(serverHandler.processSession(request, response, route.filter))
     }
 
+    func testAuthentication() {
+        let router = Router()
+        let server = ZenNIO(router: router)
+        server.addAuthentication(handler: { (email, password) -> EventLoopFuture<String> in
+            if email == "admin" && password == "admin" {
+                return server.eventLoopGroup.next().makeSucceededFuture("uniqueId")
+            }
+            return server.eventLoopGroup.next().makeFailedFuture(HttpError.unauthorized)
+        })
+        router.post("/filter") { req, res in
+            res.send(html: "<h1>Authenticated</h1>")
+            res.success()
+        }
+        server.setFilter(true, methods: [.POST], url: "/filter")
+
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
+            var urlRequest = URLRequest(url: URL(string: "http://localhost:8888/api/login")!)
+            urlRequest.httpMethod = "POST"
+            urlRequest.addValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+            urlRequest.addValue("application/json", forHTTPHeaderField: "Accept")
+
+            let account = Account(username: "admin", password: "admin")
+            urlRequest.httpBody = try! JSONEncoder().encode(account)
+            
+            URLSession.shared.dataTask(with: urlRequest) { (data, response, error) in
+                if let error = error {
+                    XCTFail(error.localizedDescription)
+                    server.stop()
+                    return
+                }
+
+                guard let data = data, let token = try? JSONDecoder().decode(Token.self, from: data) else {
+                    XCTFail("body data")
+                    server.stop()
+                    return
+                }
+                
+                var request = URLRequest(url: URL(string: "http://localhost:8888/filter")!)
+                request.httpMethod = "POST"
+                request.addValue("text/html; charset=utf-8", forHTTPHeaderField: "Content-Type")
+                request.addValue("text/html", forHTTPHeaderField: "Accept")
+                request.url = URL(string: "http://localhost:8888/filter")!
+                request.addValue("Bearer: \(token.bearer)", forHTTPHeaderField: "Authentication")
+
+                URLSession.shared.dataTask(with: request) { (data, response, error) in
+                    server.stop()
+
+                    if let error = error {
+                        XCTFail(error.localizedDescription)
+                        return
+                    }
+                    
+                    let res = response as! HTTPURLResponse
+                    XCTAssertTrue(res.statusCode != 401)
+                
+                }.resume()
+            }.resume()
+        }
+
+        XCTAssertNoThrow(try server.start(signal: false))
+    }
+    
     func testFileIO() {
         let server = ZenNIO()
         server.addWebroot(path: FileManager.default.currentDirectoryPath)
@@ -190,53 +254,22 @@ final class ZenNIOTests: XCTestCase {
         }
         
         DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
-            DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
-                let url = URL(string: "http://localhost:8888/error")!
-                URLSession.shared.dataTask(with: url) { (data, response, error) in
-                    server.stop()
-                    
-                    if let error = error {
-                        XCTFail(error.localizedDescription)
-                        return
-                    }
-                    
-                    let res = response as! HTTPURLResponse
-                    XCTAssertTrue(res.statusCode == 500)
-                    
-                }.resume()
-            }
+            let url = URL(string: "http://localhost:8888/error")!
+            URLSession.shared.dataTask(with: url) { (data, response, error) in
+                server.stop()
+                
+                if let error = error {
+                    XCTFail(error.localizedDescription)
+                    return
+                }
+                
+                let res = response as! HTTPURLResponse
+                XCTAssertTrue(res.statusCode == 500)
+                
+            }.resume()
         }
-        
+
         XCTAssertNoThrow(try server.start(signal: false))
-    }
-    
-    func testAuthentication() {
-        let router = Router()
-        let server = ZenNIO(router: router)
-        server.addAuthentication(handler: { (email, password) -> String in
-            if email == "admin" && password == "admin" {
-                return "uniqueId"
-            }
-            return ""
-        })
-        router.post("/filter") { req, res in
-            res.success()
-        }
-        server.setFilter(true, methods: [.POST], url: "/filter")
-
-        //TODO: continue
-        var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/api/login"), body: [])
-        let route = router.getRoute(request: &request)!
-
-        
-        request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/filter"), body: [])
-        guard let route = router.getRoute(request: &request) else {
-            XCTFail("route not found")
-            return
-        }
-        let response = HttpResponse(body: ByteBufferAllocator().buffer(capacity: 0))
-        let serverHandler = ServerHandler(fileIO: nil, errorHandler: nil)
-        XCTAssertFalse(serverHandler.processSession(request, response, route.filter))
     }
     
     func testStart() {
@@ -277,9 +310,9 @@ final class ZenNIOTests: XCTestCase {
         ("testHttpResponse", testHttpResponse),
         ("testHttpSession", testHttpSession),
         ("testFilter", testFilter),
+        ("testAuthentication", testAuthentication),
         ("testFileIO", testFileIO),
         ("testErrorHandler", testErrorHandler),
-        ("testAuthentication", testAuthentication),
         ("testStart", testStart),
         ("testStartHTTP2", testStartHTTP2)
     ]
