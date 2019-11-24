@@ -48,21 +48,21 @@ final class ZenNIOTests: XCTestCase {
         XCTAssertNoThrow(try JSONDecoder().decode(Client.self, from: Data(request.body)))
         
         
-        //        // POST file upload
-        //        router.post("/api/upload") { req, res in
-        //            res.success()
-        //        }
-        //        request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/api/upload"), body: [UInt8](body))
-        //        guard router.getRoute(request: &request) != nil else {
-        //            XCTFail("route not found")
-        //            return
-        //        }
-        //        guard let fileName: String = request.getParam("file"),
-        //            let file: Data = request.getParam(fileName) else {
-        //                XCTFail("parameter file")
-        //                return
-        //        }
-        //        XCTAssertTrue(file.count > 0)
+//        // POST file upload
+//        router.post("/api/upload") { req, res in
+//            res.success()
+//        }
+//        request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/api/upload"), body: [UInt8](body))
+//        guard router.getRoute(request: &request) != nil else {
+//            XCTFail("route not found")
+//            return
+//        }
+//        guard let fileName: String = request.getParam("file"),
+//            let file: Data = request.getParam(fileName) else {
+//                XCTFail("parameter file")
+//                return
+//        }
+//        XCTAssertTrue(file.count > 0)
     }
     
     func testHttpRequest() {
@@ -131,13 +131,13 @@ final class ZenNIOTests: XCTestCase {
     
     func testFilter() {
         let router = Router()
-        router.post("/auth") { req, res in
+        router.post("/filter") { req, res in
             res.success()
         }
         let server = ZenNIO(router: router)
-        server.setFilter(true, methods: [.POST], url: "/auth")
+        server.setFilter(true, methods: [.POST], url: "/filter")
         
-        var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/auth"), body: [])
+        var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/filter"), body: [])
         guard let route = router.getRoute(request: &request) else {
             XCTFail("route not found")
             return
@@ -146,7 +146,7 @@ final class ZenNIOTests: XCTestCase {
         let serverHandler = ServerHandler(fileIO: nil, errorHandler: nil)
         XCTAssertFalse(serverHandler.processSession(request, response, route.filter))
     }
-    
+
     func testFileIO() {
         let server = ZenNIO()
         server.addWebroot(path: FileManager.default.currentDirectoryPath)
@@ -210,6 +210,34 @@ final class ZenNIOTests: XCTestCase {
         XCTAssertNoThrow(try server.start(signal: false))
     }
     
+    func testAuthentication() {
+        let router = Router()
+        let server = ZenNIO(router: router)
+        server.addAuthentication(handler: { (email, password) -> String in
+            if email == "admin" && password == "admin" {
+                return "uniqueId"
+            }
+            return ""
+        })
+        router.post("/filter") { req, res in
+            res.success()
+        }
+        server.setFilter(true, methods: [.POST], url: "/filter")
+
+        //TODO: continue
+        var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/api/login"), body: [])
+        let route = router.getRoute(request: &request)!
+
+        
+        request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/filter"), body: [])
+        guard let route = router.getRoute(request: &request) else {
+            XCTFail("route not found")
+            return
+        }
+        let response = HttpResponse(body: ByteBufferAllocator().buffer(capacity: 0))
+        let serverHandler = ServerHandler(fileIO: nil, errorHandler: nil)
+        XCTAssertFalse(serverHandler.processSession(request, response, route.filter))
+    }
     
     func testStart() {
         let server = ZenNIO()
@@ -251,6 +279,7 @@ final class ZenNIOTests: XCTestCase {
         ("testFilter", testFilter),
         ("testFileIO", testFileIO),
         ("testErrorHandler", testErrorHandler),
+        ("testAuthentication", testAuthentication),
         ("testStart", testStart),
         ("testStartHTTP2", testStartHTTP2)
     ]
