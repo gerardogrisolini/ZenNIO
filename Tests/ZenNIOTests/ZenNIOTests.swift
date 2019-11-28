@@ -45,11 +45,17 @@ final class ZenNIOTests: XCTestCase {
             return
         }
         XCTAssertNoThrow(try JSONDecoder().decode(Client.self, from: Data(request.body)))
+    }
+    
+    func testHttpRequest() {
+        var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/api/client?id=1"), body: [])
+        request.parseRequest()
         
+        let id: Int? = request.getParam("id")
+        XCTAssertTrue(id != nil)
+
         
-        // POST file upload
-        router.post("/api/upload") { _, _ in }
-        
+        // multipart
         let path = URL(fileURLWithPath: "/var/log")
         let urls = try! FileManager.default.contentsOfDirectory(at: path, includingPropertiesForKeys: [URLResourceKey.isRegularFileKey], options: [])
         var filesOnly = urls.filter { !$0.hasDirectoryPath }
@@ -62,11 +68,6 @@ final class ZenNIOTests: XCTestCase {
         var head = HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/api/upload")
         head.headers.add(name: "Content-Type", value: "multipart/form-data; boundary=" + boundary)
         request = HttpRequest(head: head, body: [UInt8](data))
-
-        guard router.getRoute(request: &request) != nil else {
-            XCTFail("route not found")
-            return
-        }
         request.parseRequest()
         
         guard let fileNames: String = request.getParam("files"),
@@ -82,14 +83,6 @@ final class ZenNIOTests: XCTestCase {
             }
         }
         XCTAssertTrue(note == "Test note")
-    }
-    
-    func testHttpRequest() {
-        let request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/api/client?id=1"), body: [])
-        request.parseRequest()
-        
-        let id: Int? = request.getParam("id")
-        XCTAssertTrue(id != nil)
     }
     
     func testHttpResponse() {
