@@ -10,9 +10,8 @@ final class ZenNIOTests: XCTestCase {
         let router = Router()
         
         // GET static uri
-        router.get("/hello") { req, res in
-            res.success()
-        }
+        router.get("/hello")  { _, _ in }
+        
         var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/hello"), body: [])
         guard let route = router.getRoute(request: &request) else {
             XCTFail("route not found")
@@ -22,9 +21,8 @@ final class ZenNIOTests: XCTestCase {
         
         
         // GET string parameter
-        router.get("/hello/:name/number/:number") { req, res in
-            res.success()
-        }
+        router.get("/hello/:name/number/:number") { _, _ in }
+        
         request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/hello/guest/number/11"), body: [])
         guard router.getRoute(request: &request) != nil else {
             XCTFail("route not found")
@@ -37,9 +35,8 @@ final class ZenNIOTests: XCTestCase {
 
         
         // POST json body data
-        router.post("/api/client") { req, res in
-            res.success()
-        }
+        router.post("/api/client") { _, _ in }
+        
         let client = Client(id: 1, name: "Guest", email: "guest@domain.com")
         let body = try! JSONEncoder().encode(client)
         request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/api/client"), body: [UInt8](body))
@@ -50,21 +47,41 @@ final class ZenNIOTests: XCTestCase {
         XCTAssertNoThrow(try JSONDecoder().decode(Client.self, from: Data(request.body)))
         
         
-//        // POST file upload
-//        router.post("/api/upload") { req, res in
-//            res.success()
-//        }
-//        request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/api/upload"), body: [UInt8](body))
-//        guard router.getRoute(request: &request) != nil else {
-//            XCTFail("route not found")
-//            return
-//        }
-//        guard let fileName: String = request.getParam("file"),
-//            let file: Data = request.getParam(fileName) else {
-//                XCTFail("parameter file")
-//                return
-//        }
-//        XCTAssertTrue(file.count > 0)
+        // POST file upload
+        router.post("/api/upload") { _, _ in }
+        
+        let path = URL(fileURLWithPath: "/var/log")
+        let urls = try! FileManager.default.contentsOfDirectory(at: path, includingPropertiesForKeys: [URLResourceKey.isRegularFileKey], options: [])
+        var filesOnly = urls.filter { !$0.hasDirectoryPath }
+        if filesOnly.count > 5 {
+            filesOnly = filesOnly.dropLast(filesOnly.count - 5)
+        }
+        
+        let boundary = Uploader.generateBoundaryString()
+        let data = try! Uploader.createBody(with: [ "note" : "Test note" ], filePathKey: "files", paths: filesOnly, boundary: boundary)
+        var head = HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/api/upload")
+        head.headers.add(name: "Content-Type", value: "multipart/form-data; boundary=" + boundary)
+        request = HttpRequest(head: head, body: [UInt8](data))
+
+        guard router.getRoute(request: &request) != nil else {
+            XCTFail("route not found")
+            return
+        }
+        request.parseRequest()
+        
+        guard let fileNames: String = request.getParam("files"),
+            let note: String = request.getParam("note") else {
+                XCTFail("parameter files or note")
+                return
+        }
+        
+        for fileName in fileNames.split(separator: ",", omittingEmptySubsequences: true) {
+            if let file: Data = request.getParam(fileName.description) {
+                print(fileName)
+                XCTAssertTrue(file.count > 0)
+            }
+        }
+        XCTAssertTrue(note == "Test note")
     }
     
     func testHttpRequest() {

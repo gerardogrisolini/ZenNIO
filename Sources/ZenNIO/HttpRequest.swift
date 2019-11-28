@@ -195,7 +195,7 @@ public class HttpRequest {
                     }) {
                         start = index + 3
                     }
-                    params[name] = filename
+                    params[name] = "\(params[name] ?? ""),\(filename)"
                     params[filename] = Data(body[start...end])
                 } else {
                     if let value = String(bytes: body[start...end], encoding: .utf8) {
