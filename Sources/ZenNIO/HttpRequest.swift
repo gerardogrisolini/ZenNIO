@@ -149,6 +149,7 @@ public class HttpRequest {
         let boundary = contentType.replacingOccurrences(of: "multipart/form-data; boundary=", with: "--")
         let bytes = [UInt8](boundary.utf8)
         let len = bytes.count
+        
         var count = 0
         for i in 0..<body.count {
             if body[i] == bytes[count] {
@@ -196,7 +197,7 @@ public class HttpRequest {
                         start = index + 3
                     }
                     params[name] = "\(params[name] ?? ""),\(filename)"
-                    params[filename] = Data(body[start...end])
+                    params[filename] = start < end ? Data(body[start...end]) : Data()
                 } else {
                     if let value = String(bytes: body[start...end], encoding: .utf8) {
                         params[name] = value
