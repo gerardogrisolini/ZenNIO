@@ -146,7 +146,7 @@ public class HttpRequest {
         if !contentType.hasPrefix("multipart") { return }
         
         var result : [Int] = []
-        let boundary = contentType.replacingOccurrences(of: "multipart/form-data; boundary=", with: "--")
+        let boundary = contentType.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "multipart/form-data;boundary=", with: "--")
         let bytes = [UInt8](boundary.utf8)
         let len = bytes.count
         

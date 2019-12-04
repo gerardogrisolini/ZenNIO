@@ -66,7 +66,7 @@ final class ZenNIOTests: XCTestCase {
         let boundary = Uploader.generateBoundaryString()
         let data = try! Uploader.createBody(with: [ "note" : "Test note" ], filePathKey: "files", paths: filesOnly, boundary: boundary)
         var head = HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .POST, uri: "/api/upload")
-        head.headers.add(name: "Content-Type", value: "multipart/form-data; boundary=" + boundary)
+        head.headers.add(name: "Content-Type", value: "multipart/form-data;boundary=" + boundary)
         request = HttpRequest(head: head, body: [UInt8](data))
         request.parseRequest()
         
