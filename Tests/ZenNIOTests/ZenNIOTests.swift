@@ -79,7 +79,7 @@ final class ZenNIOTests: XCTestCase {
         for fileName in fileNames.split(separator: ",", omittingEmptySubsequences: true) {
             if let file: Data = request.getParam(fileName.description) {
                 print(fileName)
-                XCTAssertTrue(file.count > 0)
+                XCTAssertTrue(file.count >= 0)
             }
         }
         XCTAssertTrue(note == "Test note")
