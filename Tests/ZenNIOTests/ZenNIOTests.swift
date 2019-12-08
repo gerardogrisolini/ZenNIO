@@ -1,4 +1,5 @@
 import XCTest
+import Logging
 import NIO
 import NIOHTTP1
 import ZenNIOSSL
@@ -313,6 +314,14 @@ final class ZenNIOTests: XCTestCase {
         XCTAssertNoThrow(try FileManager.default.removeItem(atPath: "private.pem"))
     }
     
+    func testLogging() {
+        _ = ZenNIO(logs: [.console, .file, .memory])
+        var logger = ZenIoC.shared.resolve() as Logger
+        logger.logLevel = .debug
+        logger.log(level: .debug, Logger.Message(stringLiteral: "Log 1"))
+        logger.log(level: .info, Logger.Message(stringLiteral: "Log 2"))
+    }
+    
     
     static var allTests = [
         ("testRouter", testRouter),
@@ -323,6 +332,7 @@ final class ZenNIOTests: XCTestCase {
         ("testAuthentication", testAuthentication),
         ("testFileIO", testFileIO),
         ("testErrorHandler", testErrorHandler),
+        ("testLogging", testLogging),
         ("testStart", testStart),
         ("testStartHTTP2", testStartHTTP2)
     ]

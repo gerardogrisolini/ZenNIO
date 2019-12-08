@@ -12,7 +12,7 @@ import Logging
 
 
 public class ZenNIO {
-    public var logger: Logger
+    private var logger: Logger
     public let port: Int
     public let host: String
     public let numOfThreads: Int
@@ -31,15 +31,17 @@ public class ZenNIO {
         host: String = "::1",
         port: Int = 8888,
         numberOfThreads: Int = System.coreCount,
-        router: Router = Router()
+        router: Router = Router(),
+        logs: [Target] = [.console]
     ) {
         numOfThreads = numberOfThreads
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: numOfThreads)
+        LoggingSystem.bootstrap(targets: logs)
 
         self.host = host
         self.port = port
         self.logger = .init(label: "ZenNIO")
-        
+
         ZenIoC.shared.register { self.logger as Logger }
         ZenIoC.shared.register { router as Router }
     }

@@ -101,7 +101,7 @@ public class Router {
     func addHandler(method: HTTPMethod, uri: String, handler: @escaping HttpHandler) {
         var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: method, uri: uri))
         if getRoute(request: &request) != nil {
-            let log = Logger.Message(stringLiteral: "Duplicated route \(method) \(uri).")
+            let log = Logger.Message(stringLiteral: "⚠️ Duplicated route \(method) \(uri).")
             (ZenIoC.shared.resolve() as Logger).warning(log)
             return
         }

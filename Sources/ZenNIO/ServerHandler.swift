@@ -170,7 +170,8 @@ open class ServerHandler: ChannelInboundHandler {
             return ctx.eventLoop.makeFailedFuture(IOError.init(errnoCode: ENOENT, reason: "webroot not found"))
         }
 
-        var path = ZenNIO.htdocsPath + request.uri
+        let uri = request.uri
+        var path = uri.hasPrefix("/logs/") ? uri[uri.index(uri.startIndex, offsetBy: 1)...].description : ZenNIO.htdocsPath + uri
         if let index = path.firstIndex(of: "?") {
             path = path[path.startIndex...path.index(before: index)].description
         }

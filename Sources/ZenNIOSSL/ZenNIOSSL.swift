@@ -1,10 +1,11 @@
 //
-//  File.swift
+//  ZenNIOSSL.swift
 //  
 //
 //  Created by Gerardo Grisolini on 28/10/2019.
 //
 
+import Logging
 import NIO
 import NIOSSL
 import NIOHTTP2
@@ -83,7 +84,8 @@ extension ZenNIO {
             fatalError("Address was unable to bind.")
         }
         
-        print("☯️ ZenNIO started on https://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads")
+        let log = "☯️ ZenNIO started on https://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads"
+        (ZenIoC.shared.resolve() as Logger).info(Logger.Message(stringLiteral: log))
 
         // This will never unblock as we don't close the ServerChannel
         if signal { runSignal() }
