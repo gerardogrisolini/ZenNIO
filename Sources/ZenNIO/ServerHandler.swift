@@ -39,8 +39,8 @@ open class ServerHandler: ChannelInboundHandler {
     public var state = State.idle
     public let fileIO: NonBlockingFileIO?
     private var savedBodyBytes: [UInt8] = []
-    public var infoSavedRequestHead: HTTPRequestHead? = nil
-    private var httpHandler: HttpHandler? = nil
+    public var infoSavedRequestHead: HTTPRequestHead!
+    private var httpHandler: HttpHandler!
     public var errorHandler: ErrorHandler!
     private let router = ZenIoC.shared.resolve() as Router
     
@@ -62,12 +62,11 @@ open class ServerHandler: ChannelInboundHandler {
         case .end:
             self.state.requestComplete()
             
-            var request = HttpRequest(head: infoSavedRequestHead!, body: savedBodyBytes)
+            var request = HttpRequest(head: infoSavedRequestHead, body: savedBodyBytes)
             guard let route = router.getRoute(request: &request) else {
-                processFile(ctx: context, request: infoSavedRequestHead!).whenFailure { err in
+                return processFile(ctx: context, request: infoSavedRequestHead).whenFailure { err in
                         self.responseError(context, request.head, err).whenComplete { _ in}
                     }
-                return
             }
 
             request.clientIp = context.channel.remoteAddress!.description
@@ -147,7 +146,7 @@ open class ServerHandler: ChannelInboundHandler {
     }
     
     open func processResponse(ctx: ChannelHandlerContext, response: HttpResponse) {
-        let head = self.httpResponseHead(request: self.infoSavedRequestHead!, status: response.status, headers: response.headers)
+        let head = self.httpResponseHead(request: self.infoSavedRequestHead, status: response.status, headers: response.headers)
         ctx.write(self.wrapOutboundOut(.head(head)), promise: nil)
         ctx.write(self.wrapOutboundOut(.body(.byteBuffer(response.body))), promise: nil)
         self.completeResponse(ctx, trailers: nil, promise: nil)
@@ -165,12 +164,36 @@ open class ServerHandler: ChannelInboundHandler {
         context.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
     }
     
+    var continuousCount = 1
+    
+    fileprivate func continuousWrite(_ context: ChannelHandlerContext) {
+        func doNext() {
+            self.continuousCount += 1
+            let text = "line \(self.continuousCount)\n"
+            var buffer = context.channel.allocator.buffer(capacity: text.count)
+            buffer.writeString(text)
+            context.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer)))).map {
+                context.eventLoop.scheduleTask(in: .milliseconds(1000), doNext)
+            }.whenFailure { (_: Error) in
+                self.completeResponse(context, trailers: nil, promise: nil)
+            }
+        }
+        context.writeAndFlush(self.wrapOutboundOut(.head(httpResponseHead(request: self.infoSavedRequestHead, status: .ok))), promise: nil)
+        doNext()
+    }
+    
     public func processFile(ctx: ChannelHandlerContext, request: (HTTPRequestHead)) -> EventLoopFuture<Void> {
+        let uri = request.uri
+
+        if uri == "/logs/stream" {
+            return ctx.eventLoop.makeSucceededFuture(continuousWrite(ctx))
+        }
+
         guard let fileIO = self.fileIO else {
             return ctx.eventLoop.makeFailedFuture(IOError.init(errnoCode: ENOENT, reason: "webroot not found"))
         }
 
-        let uri = request.uri
+
         var path = uri.hasPrefix("/logs/") ? uri[uri.index(uri.startIndex, offsetBy: 1)...].description : ZenNIO.htdocsPath + uri
         if let index = path.firstIndex(of: "?") {
             path = path[path.startIndex...path.index(before: index)].description
@@ -259,7 +282,7 @@ open class ServerHandler: ChannelInboundHandler {
             self.processResponse(ctx: ctx, response: response)
         }
     }
-
+    
     public func channelReadComplete(context: ChannelHandlerContext) {
         context.flush()
     }

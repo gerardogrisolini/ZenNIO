@@ -10,20 +10,14 @@ import Logging
 
 
 public enum Target {
-    case console, file, memory
+    case console, file
 }
-
-//struct History: Codable {
-//    var date: Date
-//    var message: String
-//}
 
 /// Outputs logs to a `Console`.
 public struct ZenLogger: LogHandler {
     let path: String = "\(FileManager.default.currentDirectoryPath)/logs"
     var fmt = DateFormatter()
     var fmtDay = DateFormatter()
-    //var history = [History]()
 
     public let label: String
 
@@ -36,7 +30,7 @@ public struct ZenLogger: LogHandler {
     /// The outputs that the messages will get logged to.
     public let logTargets: [Target]
     
-    /// Creates a new `ConsoleLogger` instance.
+    /// Creates a new `ZenLogger` instance.
     ///
     /// - Parameters:
     ///   - label: Unique identifier for this logger.
@@ -109,10 +103,6 @@ public struct ZenLogger: LogHandler {
         if logTargets.contains(.file) {
             self.writeToFile(text)
         }
-        
-        if logTargets.contains(.memory) {
-            self.writeToMemory(text)
-        }
     }
     
     /// splits a path on the /Sources/ folder, returning everything after
@@ -149,13 +139,6 @@ public struct ZenLogger: LogHandler {
             fileHandle.seekToEndOfFile()
             fileHandle.write(data)
         }
-    }
-    
-    func writeToMemory(_ message: String) {
-//        history.append(History(date: Date(), message: message))
-//        if history.count > 1000 {
-//            history = Array(history.dropFirst(100))
-//        }
     }
 }
 

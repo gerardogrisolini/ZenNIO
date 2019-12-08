@@ -284,9 +284,9 @@ final class ZenNIOTests: XCTestCase {
     }
     
     func testStart() {
-        let server = ZenNIO()
+        let server = ZenNIO(logs: [.file, .console])
         DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
-            server.stop()
+            //server.stop()
         }
         XCTAssertNoThrow(try server.start(signal: false))
     }
@@ -315,11 +315,13 @@ final class ZenNIOTests: XCTestCase {
     }
     
     func testLogging() {
-        _ = ZenNIO(logs: [.console, .file, .memory])
+        _ = ZenNIO(logs: [.console, .file])
         var logger = ZenIoC.shared.resolve() as Logger
         logger.logLevel = .debug
         logger.log(level: .debug, Logger.Message(stringLiteral: "Log 1"))
         logger.log(level: .info, Logger.Message(stringLiteral: "Log 2"))
+        
+        
     }
     
     
