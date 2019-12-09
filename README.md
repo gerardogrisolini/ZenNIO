@@ -10,6 +10,10 @@ HTTP Server for IoT
 <li>Expressive, protocol-oriented design with a focus on type-safety and maintainability.</li>
 </ul>
 
+### Linux
+```
+sudo apt install libz-dev
+```
 
 ### Getting Started
 
