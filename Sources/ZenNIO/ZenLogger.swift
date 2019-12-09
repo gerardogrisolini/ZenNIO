@@ -101,7 +101,7 @@ public struct ZenLogger: LogHandler {
         }
         
         if logTargets.contains(.file) {
-            self.writeToFile(text, level)
+            self.writeToFile(text)
         }
     }
     
@@ -119,7 +119,7 @@ public struct ZenLogger: LogHandler {
     }
     
 
-    private func writeToFile(_ message: String, _ level: Logger.Level) {
+    private func writeToFile(_ message: String) {
         let date = Date()
         let logFile = "\(ZenLogger.path)/\(ZenLogger.fmtDay.string(from: date)).log"
         if !FileManager.default.fileExists(atPath: logFile) {
@@ -128,7 +128,7 @@ public struct ZenLogger: LogHandler {
             }
         }
         
-        guard let data = "\(ZenLogger.fmt.string(from: date)) [\(level.name)] \(message)\n".data(using: .utf8) else {
+        guard let data = "\(ZenLogger.fmt.string(from: date)) \(message)\n".data(using: .utf8) else {
             return
         }
 
