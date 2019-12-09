@@ -285,9 +285,9 @@ final class ZenNIOTests: XCTestCase {
     
     func testStart() {
         let server = ZenNIO(logs: [.file, .console])
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
-            //server.stop()
-        }
+//        DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
+//            server.stop()
+//        }
         XCTAssertNoThrow(try server.start(signal: false))
     }
     
@@ -315,13 +315,21 @@ final class ZenNIOTests: XCTestCase {
     }
     
     func testLogging() {
-        _ = ZenNIO(logs: [.console, .file])
+        _ = ZenNIO(logs: [.file])
+        try? FileManager.default.removeItem(atPath: ZenLogger.file)
+        
         var logger = ZenIoC.shared.resolve() as Logger
         logger.logLevel = .debug
-        logger.log(level: .debug, Logger.Message(stringLiteral: "Log 1"))
-        logger.log(level: .info, Logger.Message(stringLiteral: "Log 2"))
-        
-        
+        logger.log(level: .info, Logger.Message(stringLiteral: "Log info"))
+        logger.log(level: .debug, Logger.Message(stringLiteral: "Log debug"))
+        logger.log(level: .trace, Logger.Message(stringLiteral: "Log trace"))
+
+        if let data = ZenLogger.data, let text = String(data: data, encoding: .utf8) {
+            let count = text.split(separator: "\n").count
+            XCTAssertTrue(count == 2)
+        } else {
+            XCTFail("log not found")
+        }
     }
     
     

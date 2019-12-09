@@ -15,10 +15,10 @@ public enum Target {
 
 /// Outputs logs to a `Console`.
 public struct ZenLogger: LogHandler {
-    let path: String = "\(FileManager.default.currentDirectoryPath)/logs"
+    static let path: String = "\(FileManager.default.currentDirectoryPath)/logs"
+    static var fmtDay = DateFormatter()
     var fmt = DateFormatter()
-    var fmtDay = DateFormatter()
-
+    
     public let label: String
 
     /// See `LogHandler.metadata`.
@@ -45,19 +45,19 @@ public struct ZenLogger: LogHandler {
         
         fmt.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZ"
         fmt.locale = Locale.current
-        fmtDay.dateFormat = "yyyy-MM-dd"
-        fmtDay.locale = Locale.current
+        ZenLogger.fmtDay.dateFormat = "yyyy-MM-dd"
+        ZenLogger.fmtDay.locale = Locale.current
         
         var isFolder = ObjCBool(true)
-        if targets.contains(.file) && !FileManager.default.fileExists(atPath: path, isDirectory: &isFolder) {
+        if targets.contains(.file) && !FileManager.default.fileExists(atPath: ZenLogger.path, isDirectory: &isFolder) {
             do {
-                try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: nil)
+                try FileManager.default.createDirectory(atPath: ZenLogger.path, withIntermediateDirectories: true, attributes: nil)
             } catch {
-                debugPrint("Logs \(path): \(error.localizedDescription)")
+                debugPrint("Logs \(ZenLogger.path): \(error.localizedDescription)")
                 return
             }
         }
-        debugPrint("Logs: \(path)")
+        debugPrint("Logs: \(ZenLogger.path)")
     }
     
     /// See `LogHandler[metadataKey:]`.
@@ -101,7 +101,7 @@ public struct ZenLogger: LogHandler {
         }
         
         if logTargets.contains(.file) {
-            self.writeToFile(text)
+            self.writeToFile(text, level)
         }
     }
     
@@ -119,16 +119,16 @@ public struct ZenLogger: LogHandler {
     }
     
 
-    func writeToFile(_ message: String) {
+    func writeToFile(_ message: String, _ level: Logger.Level) {
         let date = Date()
-        let logFile = "\(path)/\(fmtDay.string(from: date)).log"
+        let logFile = "\(ZenLogger.path)/\(ZenLogger.fmtDay.string(from: date)).log"
         if !FileManager.default.fileExists(atPath: logFile) {
             guard FileManager.default.createFile(atPath: logFile, contents: nil, attributes: nil) == true else {
                 return
             }
         }
         
-        guard let data = "\(fmt.string(from: date)) \(message)\n".data(using: .utf8) else {
+        guard let data = "\(fmt.string(from: date)) [\(level.name)] \(message)\n".data(using: .utf8) else {
             return
         }
 
@@ -139,6 +139,20 @@ public struct ZenLogger: LogHandler {
             fileHandle.seekToEndOfFile()
             fileHandle.write(data)
         }
+    }
+    
+    static var file: String {
+        return "\(ZenLogger.path)/\(ZenLogger.fmtDay.string(from: Date())).log"
+    }
+    
+    static var data: Data? {
+        if let fileHandle = FileHandle(forReadingAtPath: ZenLogger.file) {
+            defer {
+                fileHandle.closeFile()
+            }
+            return fileHandle.readDataToEndOfFile()
+        }
+        return nil
     }
 }
 

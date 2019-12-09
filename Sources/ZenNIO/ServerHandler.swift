@@ -164,21 +164,38 @@ open class ServerHandler: ChannelInboundHandler {
         context.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
     }
     
-    var continuousCount = 1
-    
     fileprivate func continuousWrite(_ context: ChannelHandlerContext) {
-        func doNext() {
-            self.continuousCount += 1
-            let text = "line \(self.continuousCount)\n"
-            var buffer = context.channel.allocator.buffer(capacity: text.count)
-            buffer.writeString(text)
-            context.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer)))).map {
+        var continuousCount = 0
+        var buffer = context.channel.allocator.buffer(capacity: 0)
+
+        func doNext() {            
+            if let data = ZenLogger.data, continuousCount < data.count,
+                let text = String(bytes: data[(continuousCount + 1)...], encoding: .utf8) {
+                
+                buffer.clear()
+                buffer.reserveCapacity(text.count);
+                buffer.writeString(text)
+                context.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer)))).map {
+                    context.eventLoop.scheduleTask(in: .milliseconds(1000), doNext)
+                }.whenFailure { (_: Error) in
+                    self.completeResponse(context, trailers: nil, promise: nil)
+                }
+
+                continuousCount = data.count
+            } else {
                 context.eventLoop.scheduleTask(in: .milliseconds(1000), doNext)
-            }.whenFailure { (_: Error) in
-                self.completeResponse(context, trailers: nil, promise: nil)
             }
         }
-        context.writeAndFlush(self.wrapOutboundOut(.head(httpResponseHead(request: self.infoSavedRequestHead, status: .ok))), promise: nil)
+
+        let head = httpResponseHead(request: self.infoSavedRequestHead, status: .ok)
+        context.writeAndFlush(self.wrapOutboundOut(.head(head)), promise: nil)
+        if let data = ZenLogger.data, let text = String(data: data, encoding: .utf8) {
+            continuousCount = data.count
+            buffer.reserveCapacity(text.count);
+            buffer.writeString(text)
+            context.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer)))).whenComplete { _ in }
+        }
+        
         doNext()
     }
     
