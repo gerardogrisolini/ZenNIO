@@ -15,9 +15,9 @@ public enum Target {
 
 /// Outputs logs to a `Console`.
 public struct ZenLogger: LogHandler {
-    static let path: String = "\(FileManager.default.currentDirectoryPath)/logs"
-    static var fmtDay = DateFormatter()
-    var fmt = DateFormatter()
+    private static let path: String = "\(FileManager.default.currentDirectoryPath)/logs"
+    private static var fmtDay = DateFormatter()
+    private static var fmt = DateFormatter()
     
     public let label: String
 
@@ -43,8 +43,8 @@ public struct ZenLogger: LogHandler {
         self.logLevel = level
         self.logTargets = targets
         
-        fmt.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZ"
-        fmt.locale = Locale.current
+        ZenLogger.fmt.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZ"
+        ZenLogger.fmt.locale = Locale.current
         ZenLogger.fmtDay.dateFormat = "yyyy-MM-dd"
         ZenLogger.fmtDay.locale = Locale.current
         
@@ -59,7 +59,7 @@ public struct ZenLogger: LogHandler {
         }
         debugPrint("Logs: \(ZenLogger.path)")
     }
-    
+        
     /// See `LogHandler[metadataKey:]`.
     ///
     /// This just acts as a getter/setter for the `.metadata` property.
@@ -119,7 +119,7 @@ public struct ZenLogger: LogHandler {
     }
     
 
-    func writeToFile(_ message: String, _ level: Logger.Level) {
+    private func writeToFile(_ message: String, _ level: Logger.Level) {
         let date = Date()
         let logFile = "\(ZenLogger.path)/\(ZenLogger.fmtDay.string(from: date)).log"
         if !FileManager.default.fileExists(atPath: logFile) {
@@ -128,7 +128,7 @@ public struct ZenLogger: LogHandler {
             }
         }
         
-        guard let data = "\(fmt.string(from: date)) [\(level.name)] \(message)\n".data(using: .utf8) else {
+        guard let data = "\(ZenLogger.fmt.string(from: date)) [\(level.name)] \(message)\n".data(using: .utf8) else {
             return
         }
 
@@ -141,11 +141,16 @@ public struct ZenLogger: LogHandler {
         }
     }
     
-    static var file: String {
+    public static func setTimezone(secondsFromGMT: Int) {
+        ZenLogger.fmt.timeZone = TimeZone(secondsFromGMT: secondsFromGMT)
+        ZenLogger.fmtDay.timeZone = TimeZone(secondsFromGMT: secondsFromGMT)
+    }
+
+    public static var file: String {
         return "\(ZenLogger.path)/\(ZenLogger.fmtDay.string(from: Date())).log"
     }
     
-    static var data: Data? {
+    public static var data: Data? {
         if let fileHandle = FileHandle(forReadingAtPath: ZenLogger.file) {
             defer {
                 fileHandle.closeFile()
