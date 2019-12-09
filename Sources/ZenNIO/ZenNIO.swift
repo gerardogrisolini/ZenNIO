@@ -134,7 +134,6 @@ public class ZenNIO {
     
     public func stop() {
         channel?.flush()
-        print("")
         channel?.close().whenComplete({ result in
             let log = "☯️ ZenNIO terminated"
             self.logger.info(Logger.Message(stringLiteral: log))
