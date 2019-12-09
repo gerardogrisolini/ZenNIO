@@ -50,14 +50,11 @@ public class ZenNIO {
         stop()
     }
     
-    public func addWebroot(path: String = "webroot") {
+    public func addDocs(_ path: String = "webroot") {
         ZenNIO.htdocsPath = path
-        
-        if !ZenNIO.htdocsPath.isEmpty {
-            threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
-            threadPool!.start()
-            fileIO = NonBlockingFileIO(threadPool: threadPool!)
-        }
+        threadPool = NIOThreadPool(numberOfThreads: numOfThreads)
+        threadPool!.start()
+        fileIO = NonBlockingFileIO(threadPool: threadPool!)
     }
     
     public func addSession() {

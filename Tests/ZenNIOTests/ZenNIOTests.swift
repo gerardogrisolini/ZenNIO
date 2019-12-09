@@ -224,7 +224,7 @@ final class ZenNIOTests: XCTestCase {
     
     func testFileIO() {
         let server = ZenNIO()
-        server.addWebroot(path: FileManager.default.currentDirectoryPath)
+        server.addDocs(FileManager.default.currentDirectoryPath)
         
         let data = "Hello".data(using: .utf8)!
         XCTAssertTrue(FileManager.default.createFile(atPath: "index.html", contents: data, attributes: nil))

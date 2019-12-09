@@ -31,7 +31,7 @@ let server = ZenNIO()
 
 ### Webroot with static files
 ```
-server.addWebroot(path: "/Library/WebServer/Documents")
+server.addDocs("/Library/WebServer/Documents")
 ```
 
 ### CORS
