@@ -12,7 +12,7 @@ import Logging
 
 
 public class ZenNIO {
-    private var logger: Logger
+    public var logger: Logger
     public let port: Int
     public let host: String
     public let numOfThreads: Int
