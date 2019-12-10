@@ -47,6 +47,8 @@ extension String {
             return "image/gif"
         case "png":
             return "image/png"
+        case "svg", "svgz":
+            return "image/svg+xml"
         case "txt":
             return "text/plain; charset=utf-8"
         case "mp4":
