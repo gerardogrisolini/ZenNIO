@@ -81,7 +81,7 @@ public class ZenNIO {
     
     public func runSignal() {
         signal(SIGINT, SIG_IGN)
-        let s = DispatchSource.makeSignalSource(signal: SIGINT)
+        let s = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
         s.setEventHandler {
             self.stop()
             exit(0)
@@ -130,7 +130,10 @@ public class ZenNIO {
 
         // This will never unblock as we don't close the ServerChannel
         if signal { runSignal() }
-        try channel?.closeFuture.wait()
+        
+        DispatchQueue.main.sync {
+            try! channel?.closeFuture.wait()
+        }
     }
     
     public func stop() {
