@@ -81,9 +81,10 @@ public class ZenNIO {
     
     public func runSignal() {
         signal(SIGINT, SIG_IGN)
-        let s = DispatchSource.makeSignalSource(signal: SIGINT)
+        let s = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
         s.setEventHandler {
             self.stop()
+            exit(0)
         }
         s.resume()
     }
