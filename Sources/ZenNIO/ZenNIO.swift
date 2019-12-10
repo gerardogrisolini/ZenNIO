@@ -81,7 +81,7 @@ public class ZenNIO {
     
     public func runSignal() {
         signal(SIGINT, SIG_IGN)
-        let s = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+        let s = DispatchSource.makeSignalSource(signal: SIGINT)
         s.setEventHandler {
             self.stop()
             exit(0)
@@ -128,12 +128,10 @@ public class ZenNIO {
         let log = "☯️ ZenNIO started on http://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads"
         logger.info(Logger.Message(stringLiteral: log))
 
-        // This will never unblock as we don't close the ServerChannel
         if signal { runSignal() }
-        
-        DispatchQueue.main.sync {
-            try! channel?.closeFuture.wait()
-        }
+
+        // This will never unblock as we don't close the ServerChannel
+        try channel?.closeFuture.wait()
     }
     
     public func stop() {
