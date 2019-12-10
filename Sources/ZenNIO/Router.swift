@@ -121,7 +121,7 @@ public class Router {
         append(method: method, route: route)
     }
     
-    func addDefaultPage() {
+    public func addDefaultPage() {
         let provider: HtmlProtocol = ZenNIO.session ? ZenIoC.shared.resolve() as HtmlProtocol : HtmlProvider()
         var request = HttpRequest(head: HTTPRequestHead(version: HTTPVersion(major: 2, minor: 0), method: .GET, uri: "/"))
         let route = getRoute(request: &request)
