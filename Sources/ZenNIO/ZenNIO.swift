@@ -79,17 +79,16 @@ public class ZenNIO {
         (ZenIoC.shared.resolve() as Router).setFilter(value, methods: methods, url: url)
     }
     
-    public func runSignal() {
-        signal(SIGINT, SIG_IGN)
-        let s = DispatchSource.makeSignalSource(signal: SIGINT)
-        s.setEventHandler {
-            self.stop()
-            exit(0)
-        }
-        s.resume()
-    }
+//    public func runSignal() {
+//        signal(SIGINT, SIG_IGN)
+//        let s = DispatchSource.makeSignalSource(signal: SIGINT)
+//        s.setEventHandler {
+//            self.stop()
+//        }
+//        s.resume()
+//    }
 
-    public func start(signal: Bool = true) throws {
+    public func start() throws {
         defer {
             try! threadPool?.syncShutdownGracefully()
             try! eventLoopGroup.syncShutdownGracefully()
@@ -127,8 +126,6 @@ public class ZenNIO {
 
         let log = "☯️ ZenNIO started on http://\(localAddress.ipAddress!):\(localAddress.port!) with \(numOfThreads) threads"
         logger.info(Logger.Message(stringLiteral: log))
-
-        if signal { runSignal() }
 
         // This will never unblock as we don't close the ServerChannel
         try channel?.closeFuture.wait()

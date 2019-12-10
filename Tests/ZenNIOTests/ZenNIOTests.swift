@@ -139,7 +139,7 @@ final class ZenNIOTests: XCTestCase {
             }
         }
         
-        XCTAssertNoThrow(try server.start(signal: false))
+        XCTAssertNoThrow(try server.start())
     }
     
     func testFilter() {
@@ -219,7 +219,7 @@ final class ZenNIOTests: XCTestCase {
             }.resume()
         }
 
-        XCTAssertNoThrow(try server.start(signal: false))
+        XCTAssertNoThrow(try server.start())
     }
     
     func testFileIO() {
@@ -245,7 +245,7 @@ final class ZenNIOTests: XCTestCase {
             }.resume()
         }
         
-        XCTAssertNoThrow(try server.start(signal: false))
+        XCTAssertNoThrow(try server.start())
         XCTAssertNoThrow(try FileManager.default.removeItem(atPath: "index.html"))
     }
     
@@ -280,7 +280,7 @@ final class ZenNIOTests: XCTestCase {
             }.resume()
         }
 
-        XCTAssertNoThrow(try server.start(signal: false))
+        XCTAssertNoThrow(try server.start())
     }
     
     func testStart() {
@@ -288,7 +288,7 @@ final class ZenNIOTests: XCTestCase {
         DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
             server.stop()
         }
-        XCTAssertNoThrow(try server.start(signal: false))
+        XCTAssertNoThrow(try server.start())
     }
     
     func testStartHTTP2() {
