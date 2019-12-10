@@ -5,11 +5,6 @@
 //  Created by admin on 20/12/2018.
 //
 
-#if os(Linux)
-import Glibc
-#else
-import Darwin
-#endif
 import Dispatch
 import NIO
 import NIOHTTP1
@@ -86,7 +81,7 @@ public class ZenNIO {
     
     public func runSignal() {
         signal(SIGINT, SIG_IGN)
-        let s = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+        let s = DispatchSource.makeSignalSource(signal: SIGINT)
         s.setEventHandler {
             self.stop()
             exit(0)
