@@ -15,7 +15,7 @@ public enum Target {
 
 /// Outputs logs to a `Console`.
 public struct ZenLogger: LogHandler {
-    private static let path: String = "\(FileManager.default.currentDirectoryPath)/logs"
+    public static var path: String = "\(FileManager.default.currentDirectoryPath)/logs"
     private static var fmtDay = DateFormatter()
     private static var fmt = DateFormatter()
     
