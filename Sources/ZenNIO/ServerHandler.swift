@@ -9,10 +9,6 @@ import Foundation
 import NIO
 import NIOHTTP1
 import Logging
-//import Metrics
-
-//let numberOfRequests = Counter(label: "zennio.numberOfRequests")
-//let numberOfErrors = Counter(label: "zennio.numberOfErrors")
 
 public enum State {
     case idle
@@ -83,8 +79,6 @@ open class ServerHandler: ChannelInboundHandler {
                     self.responseError(context, request.head, err).whenComplete { _ in}
                 }
             }
-            
-//            numberOfRequests.increment()
         }
     }
 
@@ -301,8 +295,6 @@ open class ServerHandler: ChannelInboundHandler {
     }
     
     private func responseError(_ ctx: ChannelHandlerContext, _ request: HTTPRequestHead, _ error: Error) -> EventLoopFuture<Void> {
-//        numberOfErrors.increment()
-
         return self.errorHandler(ctx, request, error).map { response -> Void in
             self.processResponse(ctx: ctx, response: response)
         }

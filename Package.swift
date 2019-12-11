@@ -17,8 +17,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-ssl.git", .branch("master")),
         .package(url: "https://github.com/apple/swift-nio-http2.git", .branch("master")),
         .package(url: "https://github.com/apple/swift-nio-extras.git", .branch("master")),
-        .package(url: "https://github.com/apple/swift-log.git", .branch("master")),
-        //.package(url: "https://github.com/apple/swift-metrics.git", .branch("master"))
+        .package(url: "https://github.com/apple/swift-log.git", .branch("master"))
     ],
     targets: [
         .target(
@@ -28,8 +27,7 @@ let package = Package(
                 "NIOConcurrencyHelpers",
                 "NIOHTTP1",
                 "NIOHTTPCompression",
-                "Logging",
-                //"Metrics"
+                "Logging"
             ]
         ),
         .target(

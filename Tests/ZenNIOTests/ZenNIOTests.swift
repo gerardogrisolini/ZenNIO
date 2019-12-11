@@ -284,10 +284,10 @@ final class ZenNIOTests: XCTestCase {
     }
     
     func testStart() {
-        let server = ZenNIO()
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
-            server.stop()
-        }
+        let server = ZenNIO(logs: [.file])
+//        DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
+//            server.stop()
+//        }
         XCTAssertNoThrow(try server.start())
     }
     
