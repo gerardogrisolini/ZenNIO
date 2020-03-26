@@ -124,6 +124,8 @@ public class HttpRequest {
             let values = param.split(separator: "=")
             if values.count == 2 {
                 params[values[0].description] = values[1].description
+            } else {
+                params[values[0].description] = ""
             }
         }
     }
@@ -137,6 +139,8 @@ public class HttpRequest {
                 let values = param.split(separator: "=")
                 if values.count == 2 {
                     params[values[0].description] = values[1].description
+                } else {
+                    params[values[0].description] = ""
                 }
             }
         }
