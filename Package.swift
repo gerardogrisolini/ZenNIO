@@ -13,11 +13,11 @@ let package = Package(
         .library(name: "ZenNIOSSL", targets: ["ZenNIOSSL"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", .branch("master")),
-        .package(url: "https://github.com/apple/swift-nio-http2.git", .branch("master")),
-        .package(url: "https://github.com/apple/swift-nio-extras.git", .branch("master")),
-        .package(url: "https://github.com/apple/swift-log.git", .exact("1.4.0"))
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.23.0"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.9.2"),
+        .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.15.0"),
+        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.7.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.4.0")
     ],
     targets: [
         .target(
