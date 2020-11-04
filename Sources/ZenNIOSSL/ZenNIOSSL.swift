@@ -43,7 +43,7 @@ extension ZenNIO {
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             // Set the handlers that are applied to the accepted Channels
             .childChannelInitializer { channel in
-                return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext)).flatMap { () -> EventLoopFuture<Void> in
+                return channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext)).flatMap { () -> EventLoopFuture<Void> in
                     if ZenNIO.http == .v1 {
                         return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap { () -> EventLoopFuture<Void> in
                             channel.pipeline.addHandlers([
@@ -53,9 +53,9 @@ extension ZenNIO {
                             ])
                         }
                     }
-                    return channel.configureHTTP2Pipeline(mode: .server) { (streamChannel, streamID) -> EventLoopFuture<Void> in
+                    return channel.configureHTTP2Pipeline(mode: .server) { streamChannel -> EventLoopFuture<Void> in
                         //return streamChannel.pipeline.addHandler(HTTP2PushPromise(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
-                            return streamChannel.pipeline.addHandler(HTTP2ToHTTP1ServerCodec(streamID: streamID)).flatMap { () -> EventLoopFuture<Void> in
+                            return streamChannel.pipeline.addHandler(HTTP2FramePayloadToHTTP1ServerCodec()).flatMap { () -> EventLoopFuture<Void> in
                                 streamChannel.pipeline.addHandlers([
                                     //NIOHTTPRequestDecompressor(limit: .none),
                                     HttpResponseCompressor(),
