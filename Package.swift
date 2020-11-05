@@ -1,4 +1,4 @@
-// swift-tools-version:5.1
+// swift-tools-version:5.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -23,24 +23,27 @@ let package = Package(
         .target(
             name: "ZenNIO",
             dependencies: [
-                "NIO",
-                "NIOConcurrencyHelpers",
-                "NIOHTTP1",
-                "NIOHTTPCompression",
-                "Logging"
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOHTTPCompression", package: "swift-nio-extras"),
+                .product(name: "Logging", package: "swift-log")
             ]
         ),
         .target(
             name: "ZenNIOSSL",
             dependencies: [
                 "ZenNIO",
-                "NIOSSL",
-                "NIOHTTP2"
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "NIOHTTP2", package: "swift-nio-http2")
             ]
         ),
         .testTarget(
             name: "ZenNIOTests",
-            dependencies: ["ZenNIO", "ZenNIOSSL"]
+            dependencies: [
+                "ZenNIO",
+                "ZenNIOSSL"
+            ]
         )
     ],
     swiftLanguageVersions: [.v5]
