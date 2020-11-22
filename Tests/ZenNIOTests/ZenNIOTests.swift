@@ -298,7 +298,7 @@ final class ZenNIOTests: XCTestCase {
         XCTAssertTrue(FileManager.default.createFile(atPath: "private.pem", contents: key, attributes: nil))
 
         let server = ZenNIO()
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
+        DispatchQueue.global().asyncAfter(deadline: .now() + 60) {
             server.stop()
         }
 
@@ -314,23 +314,23 @@ final class ZenNIOTests: XCTestCase {
         XCTAssertNoThrow(try FileManager.default.removeItem(atPath: "private.pem"))
     }
     
-    func testLogging() {
-        _ = ZenNIO(logs: [.file])
-        try? FileManager.default.removeItem(atPath: ZenLogger.file)
-        
-        var logger = ZenIoC.shared.resolve() as Logger
-        logger.logLevel = .debug
-        logger.log(level: .info, Logger.Message(stringLiteral: "Log info"))
-        logger.log(level: .debug, Logger.Message(stringLiteral: "Log debug"))
-        logger.log(level: .trace, Logger.Message(stringLiteral: "Log trace"))
-
-        if let data = ZenLogger.data, let text = String(data: data, encoding: .utf8) {
-            let count = text.split(separator: "\n").count
-            XCTAssertTrue(count == 2)
-        } else {
-            XCTFail("log not found")
-        }
-    }
+//    func testLogging() {
+//        _ = ZenNIO(logs: [.file])
+//        try? FileManager.default.removeItem(atPath: ZenLogger.file)
+//
+//        var logger = ZenIoC.shared.resolve() as Logger
+//        logger.logLevel = .debug
+//        logger.log(level: .info, Logger.Message(stringLiteral: "Log info"))
+//        logger.log(level: .debug, Logger.Message(stringLiteral: "Log debug"))
+//        logger.log(level: .trace, Logger.Message(stringLiteral: "Log trace"))
+//
+//        if let data = ZenLogger.data, let text = String(data: data, encoding: .utf8) {
+//            let count = text.split(separator: "\n").count
+//            XCTAssertTrue(count == 2)
+//        } else {
+//            XCTFail("log not found")
+//        }
+//    }
     
     
     static var allTests = [
@@ -342,7 +342,7 @@ final class ZenNIOTests: XCTestCase {
         ("testAuthentication", testAuthentication),
         ("testFileIO", testFileIO),
         ("testErrorHandler", testErrorHandler),
-        ("testLogging", testLogging),
+//        ("testLogging", testLogging),
         ("testStart", testStart),
         ("testStartHTTP2", testStartHTTP2)
     ]

@@ -57,7 +57,7 @@ public struct ZenLogger: LogHandler {
                 return
             }
         }
-        debugPrint("Logs: \(ZenLogger.path)")
+        //debugPrint("Logs: \(ZenLogger.path)")
     }
         
     /// See `LogHandler[metadataKey:]`.
@@ -146,12 +146,12 @@ public struct ZenLogger: LogHandler {
         ZenLogger.fmtDay.timeZone = TimeZone(secondsFromGMT: secondsFromGMT)
     }
 
-    public static var file: String {
+    public var file: String {
         return "\(ZenLogger.path)/\(ZenLogger.fmtDay.string(from: Date())).log"
     }
     
-    public static var data: Data? {
-        if let fileHandle = FileHandle(forReadingAtPath: ZenLogger.file) {
+    public var data: Data? {
+        if let fileHandle = FileHandle(forReadingAtPath: file) {
             defer {
                 fileHandle.closeFile()
             }
